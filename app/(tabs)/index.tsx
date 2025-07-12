@@ -10,7 +10,7 @@ import { ActivityIndicator, FlatList, ScrollView, StyleSheet, Text, View } from 
 import { TouchableOpacity } from "react-native-gesture-handler"
 
 interface Property {
-  id: number
+  id: number | string
   image: { uri: string }
   price: number | string
   rental_price?: number | string
@@ -24,6 +24,7 @@ interface Property {
   title: string
   is_short_term?: boolean
 }
+
 
 const PLACEHOLDER_IMAGES = [
   "https://images.unsplash.com/photo-1564013799919-ab600027ffc6?ixlib=rb-1.2.1&auto=format&fit=crop&w=500&q=80",
@@ -166,11 +167,11 @@ export default function Home() {
     }
   }
 
+
   const renderItem = ({ item, index }: { item: Property; index: number }) => (
     <TouchableOpacity onPress={() => handlePropertyPress(item)}>
       <PropertyCardScreen
-        key={item.id}
-        image={item.image.uri || PLACEHOLDER_IMAGES[index % PLACEHOLDER_IMAGES.length]}
+        image={item.image?.uri || PLACEHOLDER_IMAGES[index % PLACEHOLDER_IMAGES.length]}
         price={formatPrice(item)}
         star_rating={item.star_rating ?? 0}
         property_type={item.property_type}
@@ -182,6 +183,9 @@ export default function Home() {
       />
     </TouchableOpacity>
   )
+
+
+
 
   if (loading) {
     return (
@@ -206,15 +210,15 @@ export default function Home() {
       <View style={styles.listingsContainer}>
         <Text style={styles.listingsTitle}>Recent listings</Text>
         {properties.length > 0 ? (
-          <FlatList
+         <FlatList
             data={properties}
             renderItem={renderItem}
-            keyExtractor={(item) => item.id.toString()}
+            keyExtractor={(item, index) => `property-${item.id}-${index}`}
             numColumns={2}
             columnWrapperStyle={styles.row}
             scrollEnabled={false}
           />
-        ) : (
+                  ) : (
           <Text style={styles.noPropertiesText}>No properties available</Text>
         )}
       </View>

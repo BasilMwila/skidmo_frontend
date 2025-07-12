@@ -1,7 +1,7 @@
-import axios from 'axios';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import axios from 'axios';
 
-const BASE_URL = 'https://skidmo-core-system.onrender.com/api/test/v1/';
+const BASE_URL = 'http://192.168.1.184:8000/api/test/v1/';
 
 interface Message {
   id: number;
@@ -13,11 +13,11 @@ interface Message {
     name: string;
     avatar?: string;
   };
-  attachments?: Array<{
+  attachments?: {
     id: number;
     url: string;
     type: 'image' | 'video' | 'document';
-  }>;
+  }[];
 }
 
 export interface Thread {
@@ -36,11 +36,11 @@ export interface Thread {
     };
     thread: number;
   } | null;
-  participants: Array<{
+  participants: {
     id: number;
     name: string;
     avatar?: string;
-  }>;
+  }[];
   unread_count: number;
   listing?: {
     id: number;

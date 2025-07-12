@@ -1,7 +1,12 @@
-import axios from 'axios';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import axios from 'axios';
 
-const BASE_URL = 'https://skidmo-core-system.onrender.com/api/test/v1/';
+
+//production URL
+// const BASE_URL = 'https://skidmo-core-system.onrender.com/api/test/v1/';
+
+// Deveploment URL
+const BASE_URL = process.env.REACT_APP_API_BASE_URL || 'http://192.168.1.184:8000/api/test/v1/';
 
 // Create axios instance with base URL
 const api = axios.create({
@@ -55,6 +60,19 @@ interface ReservationParams {
   start_date__gte?: string;
   end_date__lte?: string;
   [key: string]: any;
+}
+
+// Define the Reservation interface
+export interface Reservation {
+  id: number;
+  user: number;
+  property: number;
+  status: string;
+  start_date: string;
+  end_date: string;
+  created_at: string;
+  updated_at: string;
+  // Add other fields as needed based on your backend response
 }
 
 export const reservationsAPI = {

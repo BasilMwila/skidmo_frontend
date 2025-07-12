@@ -1,88 +1,80 @@
-import axios from 'axios';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import axios from 'axios';
 
-const BASE_URL = 'https://skidmo-core-system.onrender.com/api/test/v1/';
+// Base URL from env or fallback
+const BASE_URL = process.env.REACT_APP_API_BASE_URL || 'http://192.168.1.184:8000/api/test/v1/';
 
 interface WishlistItem {
   id: string;
-  product: {
-    id: string;
-    name: string;
-    price: number;
-    image: string;
-    // Add other product fields as needed
-  };
-  // Add other wishlist fields as needed
+  property_id: string;
+  property_type: string;
+  // other fields you expect
 }
 
+// Use the correct base URL for wishlist API
 const wishlistAPI = axios.create({
-  baseURL: `${BASE_URL}reservations/`,
+  baseURL: `${BASE_URL}wishlist/`,  // <== wishlist endpoint base
   headers: {
     'Content-Type': 'application/json',
   },
 });
 
-// Add request interceptor to inject the token
+// Request interceptor to add Authorization token
 wishlistAPI.interceptors.request.use(
   async (config) => {
     const token = await AsyncStorage.getItem('access_token');
+    // console.log('Sending token:', token); // <== DEBUG LOG
     if (token) {
       config.headers.Authorization = `Bearer ${token}`;
     }
     return config;
   },
-  (error) => {
-    return Promise.reject(error);
-  }
+  (error) => Promise.reject(error)
 );
 
-export const wishlistService = {
 
+
+export const wishlistService = {
+  // Get all wishlist items for user
   getWishlist: async (): Promise<WishlistItem[]> => {
     try {
       const response = await wishlistAPI.get('/');
-      return response.data;
+      return response.data; // assuming the backend returns a list
     } catch (error) {
       console.error('Error fetching wishlist:', error);
       throw error;
     }
   },
 
-  /**
-   * Add an item to the wishlist
-   * @param productId - ID of the product to add
-   */
-  addToWishlist: async (productId: string): Promise<WishlistItem> => {
+  // Toggle wishlist item (add if not present, remove if present)
+  toggleWishlistItem: async (propertyId: string, propertyType: string): Promise<{ detail: string }> => {
     try {
-      const response = await wishlistAPI.post('/', { product: productId });
-      return response.data;
+      const response = await wishlistAPI.post('toggle/', {
+        property_id: propertyId,
+        property_type: propertyType,
+      });
+      return response.data; // { detail: "Added to wishlist." } or { detail: "Removed from wishlist." }
     } catch (error) {
-      console.error('Error adding to wishlist:', error);
+      console.error('Error toggling wishlist item:', error);
       throw error;
     }
   },
 
-  /**
-   * Remove an item from the wishlist
-   * @param wishlistItemId - ID of the wishlist item to remove
-   */
+  // Remove a wishlist item by wishlist item ID (optional if needed)
   removeFromWishlist: async (wishlistItemId: string): Promise<void> => {
     try {
-      await wishlistAPI.delete(`/${wishlistItemId}/`);
+      await wishlistAPI.delete(`${wishlistItemId}/`);
     } catch (error) {
       console.error('Error removing from wishlist:', error);
       throw error;
     }
   },
 
-  /**
-   * Check if a product is in the user's wishlist
-   * @param productId - ID of the product to check
-   */
-  isInWishlist: async (productId: string): Promise<boolean> => {
+  // Check if a property is in wishlist by fetching all and searching
+  isInWishlist: async (propertyId: string): Promise<boolean> => {
     try {
       const wishlist = await wishlistService.getWishlist();
-      return wishlist.some(item => item.product.id === productId);
+      return wishlist.some(item => item.property_id === propertyId);
     } catch (error) {
       console.error('Error checking wishlist:', error);
       return false;

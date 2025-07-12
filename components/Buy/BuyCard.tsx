@@ -14,6 +14,9 @@ import { Ionicons, MaterialIcons, Feather, FontAwesome } from '@expo/vector-icon
 import { useNavigation } from 'expo-router';
 import { useRouter } from 'expo-router';
 import { propertiesAPI } from '@/services/propertiesApi';
+import { wishlistService } from '@/services/wishlistAPI';
+
+
 
 interface Property {
   id: string;
@@ -32,6 +35,10 @@ const BuyScreen = () => {
   const [saleProperties, setSaleProperties] = useState<Property[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+
+  const [wishlistIds, setWishlistIds] = useState<Set<string>>(new Set());
+  const [togglingIds, setTogglingIds] = useState<Set<string>>(new Set());
+
   
   const navigation = useNavigation();
   const router = useRouter();
@@ -40,45 +47,94 @@ const BuyScreen = () => {
     navigation.setOptions({ 
       headerShown: false
     });
+const fetchSaleProperties = async () => {
+  try {
+    const data = await propertiesAPI.filterProperties({ purchase_type: 'sale' });
 
-    const fetchSaleProperties = async () => {
-      try {
-        const data = await propertiesAPI.listProperties();
-        
-        // Filter for sale properties and transform data
-        const saleData = data
-          .filter((property: any) => property.purchase_type === 'sale')
-          .map((property: any) => ({
-            id: property.id.toString(),
-            title: property.title,
-            price: `K${parseFloat(property.price).toLocaleString(undefined, {
-              minimumFractionDigits: 2,
-              maximumFractionDigits: 2
-            })}`,
-            address: property.address,
-            number_of_rooms: property.number_of_rooms,
-            number_of_bathrooms: property.number_of_bathrooms,
-            images: property.images,
-            hasMap: Boolean(property.location_coordinates),
-            contact: property.contact,
-            rating: property.rating || 0,
-          }));
-        
-        setSaleProperties(saleData);
-      } catch (err) {
-        console.error('Failed to fetch sale properties:', err);
-        setError('Failed to load properties for sale. Please try again.');
-      } finally {
-        setLoading(false);
-      }
-    };
+    if (!Array.isArray(data.properties)) {
+      console.error("Unexpected response format:", data);
+      setError("Invalid data format from API");
+      return;
+    }
 
-    fetchSaleProperties();
+    const saleData = data.properties.map((property: any) => ({
+      id: property.id.toString(),
+      title: property.title,
+      price: `K${parseFloat(property.sale_price || property.price).toLocaleString(undefined, {
+        minimumFractionDigits: 2,
+        maximumFractionDigits: 2,
+      })}`,
+      address: property.address,
+      number_of_rooms: property.bedroom_count || property.number_of_rooms || 0,
+      number_of_bathrooms: property.bathroom_count || property.number_of_bathrooms || 0,
+      images: property.photos,
+      hasMap: Boolean(property.location_coordinates),
+      contact: property.contact,
+      rating: property.rating || 0,
+    }));
+
+    setSaleProperties(saleData);
+  } catch (err) {
+    console.error("Failed to fetch sale properties:", err);
+    setError("Failed to load properties for sale. Please try again.");
+  } finally {
+    setLoading(false);
+  }
+};
+
+  const fetchWishlist = async () => {
+    try {
+      // Assuming your wishlist items have property id field named `property.id`
+      const wishlistItems = await wishlistService.getWishlist();
+
+      // Convert wishlistItems to a Set of property IDs
+      const wishlistSet = new Set(
+        wishlistItems.map((item: any) => item.property?.id?.toString() || item.id?.toString())
+      );
+
+      setWishlistIds(wishlistSet);
+    } catch (err) {
+      console.error("Failed to fetch wishlist:", err);
+    }
+  };
+
+  fetchWishlist();
+
+  fetchSaleProperties();
   }, [navigation]);
 
   const handleGoBack = () => {
     router.back();
   };
+
+ const handleToggleWishlist = async (propertyId: string) => {
+  if (togglingIds.has(propertyId)) return;
+
+  setTogglingIds(prev => new Set(prev).add(propertyId));
+
+  try {
+    // 'sale' here is the propertyType
+    await wishlistService.toggleWishlistItem(propertyId, 'sale');
+
+    setWishlistIds(prev => {
+      const newSet = new Set(prev);
+      if (newSet.has(propertyId)) {
+        newSet.delete(propertyId);
+      } else {
+        newSet.add(propertyId);
+      }
+      return newSet;
+    });
+  } catch (error) {
+    console.error("Error toggling wishlist:", error);
+  } finally {
+    setTogglingIds(prev => {
+      const newSet = new Set(prev);
+      newSet.delete(propertyId);
+      return newSet;
+    });
+  }
+};
 
   const renderStars = (count: number) => {
     return (
@@ -105,9 +161,22 @@ const BuyScreen = () => {
           style={styles.propertyImage}
         />
         <View style={styles.imageActions}>
-          <TouchableOpacity style={styles.actionIconButton}>
-            <Ionicons name="heart-outline" size={22} color="black" />
-          </TouchableOpacity>
+          <TouchableOpacity
+            style={styles.actionIconButton}
+            onPress={() => handleToggleWishlist(item.id)}
+            disabled={togglingIds.has(item.id)}
+          >
+            {togglingIds.has(item.id) ? (
+              <ActivityIndicator size="small" color="#00a651" />
+            ) : (
+              <Ionicons
+                name={wishlistIds.has(item.id) ? 'heart' : 'heart-outline'}
+                size={22}
+                color={wishlistIds.has(item.id) ? 'red' : 'black'}
+              />
+            )}
+        </TouchableOpacity>
+
           <TouchableOpacity style={styles.actionIconButton}>
             <Ionicons name="ellipsis-horizontal" size={22} color="black" />
           </TouchableOpacity>
@@ -195,7 +264,7 @@ const BuyScreen = () => {
         <FlatList
           data={saleProperties}
           renderItem={renderPropertyItem}
-          keyExtractor={(item) => item.id}
+          keyExtractor={(item, index) => `${item.id}-${index}`}
           contentContainerStyle={styles.listContainer}
           showsVerticalScrollIndicator={false}
         />
@@ -431,3 +500,4 @@ const styles = StyleSheet.create({
 });
 
 export default BuyScreen;
+

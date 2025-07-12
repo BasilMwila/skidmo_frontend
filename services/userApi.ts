@@ -2,11 +2,11 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import axios from 'axios';
 import { jwtDecode } from 'jwt-decode';
 
-const BASE_URL = 'https://skidmo-core-system.onrender.com/api/test/v1/';
+// const BASE_URL = 'https://skidmo-core-system.onrender.com/api/test/v1/';
+// Add the env variable for the base URL
+const BASE_URL = process.env.REACT_APP_API_BASE_URL || "http://192.168.1.184:8000/api/test/v1/" // Default to ngrok URL if env variable is not set
 
-interface RefreshTokenResponse {
-    access: string;
-}
+
 
 interface UserData {
     id?: string;

@@ -135,69 +135,91 @@ const RentListingScreen = () => {
   const handleCallOwner = useCallback((phoneNumber: string) => {
     Linking.openURL(`tel:${phoneNumber}`);
   }, []);
-
-  const handleReserve = useCallback(async (propertyId: number) => {
-    try {
-      setReserving(propertyId);
-      
-      const userId = await AsyncStorage.getItem('user_id');
-      
-      if (!userId) {
-        Alert.alert(
-          'Login Required', 
-          'Please login to make a reservation',
-          [
-            { text: 'Cancel', style: 'cancel' },
-            { text: 'Login', onPress: () => router.push('/authentication/signin') }
-          ]
-        );
-        return;
-      }
-  
-      const property = properties.find(p => p.id === propertyId);
-      if (!property) throw new Error('Property not found');
-  
-      const reservationData = {
-        listing: {
-          id: propertyId,
-          title: property.title,
-          address: property.address,
-          description: property.description || 'No description provided',
-          lister: parseInt(userId),
-          price: property.rental_price || property.price || 0,
-          property_type: property.property_type,
-          purpose: property.purpose
-        },
-        user: parseInt(userId),
-        start_date: new Date().toISOString().split('T')[0],
-        end_date: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
-        status: 'pending',
-        notes: 'Reserved via mobile app'
-      };
-  
-      await reservationsAPI.create(reservationData);
-      
+const handleReserve = useCallback(async (propertyId: number) => {
+  try {
+    setReserving(propertyId);
+    const userId = await AsyncStorage.getItem('user_id');
+    if (!userId) {
       Alert.alert(
-        'Reservation Successful', 
-        'Your reservation has been submitted',
+        'Login Required', 
+        'Please login to make a reservation',
         [
-          { 
-            text: 'View Bookings', 
-            onPress: () => router.push('/dashboard/bookingHistory') 
-          },
-          { 
-            text: 'OK', 
-            style: 'cancel' 
-          }
+          { text: 'Cancel', style: 'cancel' },
+          { text: 'Login', onPress: () => router.push('/authentication/signin') }
         ]
       );
-      
-    } catch (error) {
-      handleApiError(error, 'reservation');
-    } finally {
-      setReserving(null);
+      return;
     }
-  }, [properties, router]);
+
+    const property = properties.find(p => p.id === propertyId);
+    if (!property) throw new Error('Property not found');
+
+    // Format date correctly
+    const formatDate = (date: Date): string => {
+      const year = date.getFullYear();
+      const month = String(date.getMonth() + 1).padStart(2, '0');
+      const day = String(date.getDate()).padStart(2, '0');
+      return `${year}-${month}-${day}`;
+    };
+
+    const today = new Date();
+    const thirtyDaysLater = new Date(today);
+    thirtyDaysLater.setDate(today.getDate() + 30);
+
+    // Calculate total amount based on term_category
+    const pricePerDay = property.rental_price || property.price || 0;
+    let totalAmount = 0;
+
+    if (property.term_category === 'SHORT') {
+      const diffTime = Math.abs(thirtyDaysLater.getTime() - today.getTime());
+      const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+      totalAmount = pricePerDay * diffDays;
+    } else {
+      totalAmount = pricePerDay; // Monthly rate
+    }
+
+    const reservationData = {
+      listing: {
+        id: propertyId,
+        title: property.title,
+        address: property.address,
+        description: property.description || 'No description provided',
+        lister: parseInt(userId),
+        price: pricePerDay,
+        property_type: property.property_type,
+        purpose: property.purpose
+      },
+      user: parseInt(userId),
+      start_date: formatDate(today),
+      end_date: formatDate(thirtyDaysLater),
+      status: 'pending',
+      notes: 'Reserved via mobile app',
+      total_amount: totalAmount,
+    };
+
+    await reservationsAPI.create(reservationData);
+    
+    Alert.alert(
+      'Reservation Successful', 
+      'Your reservation has been submitted',
+      [
+        { 
+          text: 'View Bookings', 
+          onPress: () => router.push('/dashboard/bookingHistory') 
+        },
+        { 
+          text: 'OK', 
+          style: 'cancel' 
+        }
+      ]
+    );
+  } catch (error) {
+    handleApiError(error, 'reservation');
+  } finally {
+    setReserving(null);
+  }
+}, [properties, router]);
+
 
   const filteredProperties = properties.filter(property => {
     if (activeTab === 'ALL') return true;
