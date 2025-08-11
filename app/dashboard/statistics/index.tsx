@@ -1,18 +1,16 @@
-import { StyleSheet, View } from 'react-native'
-import React from 'react'
-import StatisticsScreen from '@/components/Profile/StatisticsScreen'
+import { StyleSheet, View } from "react-native"
+import { StatisticsScreen } from "@/components/Profile/StatisticsScreen" // Correct named import
 
 export default function MyStatistics() {
   return (
     <View style={styles.container}>
-        <StatisticsScreen/>
+      <StatisticsScreen />
     </View>
   )
 }
 
-const styles = StyleSheet.create({ 
-    container: {
-        flex: 1,
-      },
+const styles = StyleSheet.create({
+  container: {
+    flex: 1,
+  },
 })
-

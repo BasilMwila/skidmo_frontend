@@ -1,6 +1,7 @@
-import { View, TextInput, TouchableOpacity, StyleSheet } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { Link } from "expo-router";
+import { StyleSheet, TextInput, TouchableOpacity, View } from "react-native";
+import {NotificationButton} from "@/components/ui/NotificationButton";
 
 export function SearchBar() {
   return (
@@ -20,7 +21,7 @@ export function SearchBar() {
         </TouchableOpacity>
       </Link>
       <TouchableOpacity style={styles.bellContainer}>
-        <Ionicons name="notifications-outline" size={24} color="#000" />
+        <NotificationButton hasUnread={true} />
       </TouchableOpacity>
     </View>
   );

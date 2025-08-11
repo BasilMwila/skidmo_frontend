@@ -1,12 +1,16 @@
+// 
+
+
 "use client"
 
 import { ActionButtons } from "@/components/Home/ActionButton"
+import { MapFloatingButton } from "@/components/ui/MapFloatingButton"
 import { PropertyCardScreen } from "@/components/Home/PropertyCard"
 import { SearchBar } from "@/components/Home/SearchBar"
 import { propertiesAPI } from "@/services/propertiesApi"
 import { useRouter } from "expo-router"
 import { useEffect, useState } from "react"
-import { ActivityIndicator, FlatList, ScrollView, StyleSheet, Text, View } from "react-native"
+import { ActivityIndicator, FlatList, SafeAreaView, ScrollView, StyleSheet, Text, View } from "react-native"
 import { TouchableOpacity } from "react-native-gesture-handler"
 
 interface Property {
@@ -24,7 +28,6 @@ interface Property {
   title: string
   is_short_term?: boolean
 }
-
 
 const PLACEHOLDER_IMAGES = [
   "https://images.unsplash.com/photo-1564013799919-ab600027ffc6?ixlib=rb-1.2.1&auto=format&fit=crop&w=500&q=80",
@@ -50,7 +53,6 @@ export default function Home() {
         ])
 
         const allProperties = [...commercial, ...apartments, ...houses, ...hotels]
-
         const transformedProperties = allProperties.map((property: any, index: number) => {
           const isShortTerm = property.property_type === "LODGE_HOTEL"
 
@@ -134,7 +136,6 @@ export default function Home() {
   const handlePropertyPress = async (item: Property) => {
     try {
       console.log(`Navigating to property details for ID: ${item.id} (Type: ${item.property_type})`)
-
       const propertyId = typeof item.id === "string" ? Number.parseInt(item.id, 10) : item.id
 
       if (isNaN(propertyId)) {
@@ -167,7 +168,6 @@ export default function Home() {
     }
   }
 
-
   const renderItem = ({ item, index }: { item: Property; index: number }) => (
     <TouchableOpacity onPress={() => handlePropertyPress(item)}>
       <PropertyCardScreen
@@ -183,9 +183,6 @@ export default function Home() {
       />
     </TouchableOpacity>
   )
-
-
-
 
   if (loading) {
     return (
@@ -204,25 +201,38 @@ export default function Home() {
   }
 
   return (
-    <ScrollView style={styles.container}>
-      <SearchBar />
-      <ActionButtons />
-      <View style={styles.listingsContainer}>
-        <Text style={styles.listingsTitle}>Recent listings</Text>
-        {properties.length > 0 ? (
-         <FlatList
-            data={properties}
-            renderItem={renderItem}
-            keyExtractor={(item, index) => `property-${item.id}-${index}`}
-            numColumns={2}
-            columnWrapperStyle={styles.row}
-            scrollEnabled={false}
-          />
-                  ) : (
-          <Text style={styles.noPropertiesText}>No properties available</Text>
-        )}
+    <SafeAreaView style={styles.container}>
+      {/* Header with Search and Notification */}
+      <View style={styles.header}>
+        <View style={styles.searchContainer}>
+          <SearchBar />
+        </View>
+      
       </View>
-    </ScrollView>
+
+      <ScrollView style={styles.scrollContent}>
+        <ActionButtons />
+
+        <View style={styles.listingsContainer}>
+          <Text style={styles.listingsTitle}>Recent listings</Text>
+          {properties.length > 0 ? (
+            <FlatList
+              data={properties}
+              renderItem={renderItem}
+              keyExtractor={(item, index) => `property-${item.id}-${index}`}
+              numColumns={2}
+              columnWrapperStyle={styles.row}
+              scrollEnabled={false}MapFloatingButton
+            />
+          ) : (
+            <Text style={styles.noPropertiesText}>No properties available</Text>
+          )}
+        </View>
+      </ScrollView>
+
+      {/* Map Floating Button */}
+      <MapFloatingButton />
+    </SafeAreaView>
   )
 }
 
@@ -230,6 +240,20 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: "#fff",
+  },
+  header: {
+    flexDirection: "row",
+    alignItems: "center",
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    backgroundColor: "#fff",
+  },
+  searchContainer: {
+    flex: 1,
+    marginRight: 8,
+  },
+  scrollContent: {
+    flex: 1,
   },
   listingsContainer: {
     paddingHorizontal: 16,

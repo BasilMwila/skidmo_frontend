@@ -1,18 +1,7 @@
-import { StyleSheet, View } from 'react-native'
-import React from 'react'
-import ConversationCard from '@/components/Messages/CoversationCard'
+import React from 'react';
+import ConversationBody from '@/components/Messages/CoversationBody';
 
-export default function Conversation() {
-  return (
-    <View style={styles.container}>
-        <ConversationCard/>
-    </View>
-  )
+export default function ConversationInbox() {
+  return <ConversationBody />;
 }
-
-const styles = StyleSheet.create({ 
-    container: {
-        flex: 1,
-      },
-})
 

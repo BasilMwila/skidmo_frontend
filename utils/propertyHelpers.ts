@@ -1,3 +1,4 @@
+/* eslint-disable import/no-unresolved */
 // Helper functions for property creation
 
 export const validatePropertyData = (data: any, propertyType: string) => {

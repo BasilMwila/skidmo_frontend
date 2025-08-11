@@ -59,7 +59,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   const login = async (username: string, password: string) => {
     setIsLoading(true);
     try {
-      const response = await ownerAPI.login(username, password);
+      await ownerAPI.login(username, password);
       const userData = await ownerAPI.getUserInfo();
       setUser(userData);
       setIsAuthenticated(true);

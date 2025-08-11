@@ -68,6 +68,9 @@ const ProfileScreen = () => {
                     <Text style={styles.loginText}>Log in</Text>
                 </TouchableOpacity>
             </Link>
+
+            {/* Separator for clarity */}
+            <View style={styles.separator} />
             
             <View style={styles.optionsContainer}>
               <TouchableOpacity 
@@ -123,6 +126,11 @@ const styles = StyleSheet.create({
         color: 'white',
         fontSize: 16,
         fontWeight: 'bold',
+    },
+    separator: {
+        height: 1,
+        backgroundColor: '#eee',
+        marginVertical: 16,
     },
     optionsContainer: {
         marginTop: 10,

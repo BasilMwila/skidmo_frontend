@@ -2,7 +2,10 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import axios from 'axios';
 
 // Base URL from env or fallback
-const BASE_URL = process.env.REACT_APP_API_BASE_URL || 'http://192.168.1.184:8000/api/test/v1/';
+import { API_CONFIG } from '../config/apiConfig';
+
+// Then replace the hardcoded BASE_URL with:
+const BASE_URL = API_CONFIG.BASE_URL;
 
 interface WishlistItem {
   id: string;
@@ -41,7 +44,7 @@ export const wishlistService = {
       const response = await wishlistAPI.get('/');
       return response.data; // assuming the backend returns a list
     } catch (error) {
-      console.error('Error fetching wishlist:', error);
+      console.error('Error fetching whishlist:', error);
       throw error;
     }
   },
@@ -55,7 +58,7 @@ export const wishlistService = {
       });
       return response.data; // { detail: "Added to wishlist." } or { detail: "Removed from wishlist." }
     } catch (error) {
-      console.error('Error toggling wishlist item:', error);
+      console.error('Error toggling whishlist item:', error);
       throw error;
     }
   },
@@ -65,7 +68,7 @@ export const wishlistService = {
     try {
       await wishlistAPI.delete(`${wishlistItemId}/`);
     } catch (error) {
-      console.error('Error removing from wishlist:', error);
+      console.error('Error removing from whishlist:', error);
       throw error;
     }
   },

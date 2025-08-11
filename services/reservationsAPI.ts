@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-unused-vars */
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import axios from 'axios';
 
@@ -6,7 +7,10 @@ import axios from 'axios';
 // const BASE_URL = 'https://skidmo-core-system.onrender.com/api/test/v1/';
 
 // Deveploment URL
-const BASE_URL = process.env.REACT_APP_API_BASE_URL || 'http://192.168.1.184:8000/api/test/v1/';
+import { API_CONFIG } from '../config/apiConfig';
+
+// Then replace the hardcoded BASE_URL with:
+const BASE_URL = API_CONFIG.BASE_URL;
 
 // Create axios instance with base URL
 const api = axios.create({

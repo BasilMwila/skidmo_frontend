@@ -1,104 +1,136 @@
-import AsyncStorage from '@react-native-async-storage/async-storage';
-import axios from 'axios';
-import { jwtDecode } from 'jwt-decode';
+import AsyncStorage from "@react-native-async-storage/async-storage";
+import axios from "axios";
+import { jwtDecode } from "jwt-decode";
 
-// const BASE_URL = 'https://skidmo-core-system.onrender.com/api/test/v1/';
-// Add the env variable for the base URL
-const BASE_URL = process.env.REACT_APP_API_BASE_URL || "http://192.168.1.184:8000/api/test/v1/" // Default to ngrok URL if env variable is not set
+import { API_CONFIG } from '../config/apiConfig';
 
+// Then replace the hardcoded BASE_URL with:
+const BASE_URL = API_CONFIG.BASE_URL;
 
-
-interface UserData {
-    id?: string;
-    phone_number: string;
-    name: string;
-    email: string;
-    firstName?: string;
-    lastName?: string;
-    phoneNumber?: string;
-    profileImage?: string;
-    date_of_birth?: string;
-    nrc_number?: string;
-    province?: string;
-    town?: string;
-    city?: string;
-    postal_code?: string;
-    address_line_1?: string;
-    address_line_2?: string;
-    status_verification?: string // Add this line
+export interface User {
+  id: number | string
+  name: string
+  email: string
+  phone_number: string
+  profileImage?: string
+  status_verification: "verified" | "unverified" | "pending"
+  is_agent?: boolean
+  created_at?: string
+  updated_at?: string
 }
 
-const api = axios.create({
-    baseURL: BASE_URL,
-    headers: {
-        'Content-Type': 'application/json',
-    },
-});
+export interface UserProfile extends User {
+  bio?: string
+  location?: string
+  rating?: number
+  total_properties?: number
+  verified_documents?: string[]
+}
+
+export interface CreateUserData {
+  name: string
+  email: string
+  phone_number: string
+  password: string
+}
+
+export interface UpdateUserData {
+  name?: string
+  email?: string
+  phone_number?: string
+  profileImage?: string
+}
+
+interface UserData {
+  name: string
+  phone_number: string
+  password: string
+  password2: string
+}
+
+export const api = axios.create({
+  baseURL: BASE_URL,
+  headers: {
+    "Content-Type": "application/json",
+  },
+})
 
 // Add request interceptor to add auth token
 api.interceptors.request.use(
-    async (config) => {
-        // Try to get token from global or AsyncStorage
-        let token = (global as any).access_token;
-        
-        if (!token) {
-            token = await AsyncStorage.getItem('access_token');
-            if (token) {
-                (global as any).access_token = token;
-            }
-        }
-        
-        if (token) {
-            config.headers.Authorization = `Bearer ${token}`;
-        }
-        
-        return config;
-    },
-    (error) => {
-        return Promise.reject(error);
+  async (config) => {
+    let token = (global as any).access_token
+    if (!token) {
+      token = await AsyncStorage.getItem("access_token")
+      if (token) {
+        ;(global as any).access_token = token
+      }
     }
-);
+
+    if (token) {
+      config.headers.Authorization = `Bearer ${token}`
+    }
+    return config
+  },
+  (error) => {
+    return Promise.reject(error)
+  },
+)
 
 // response interceptor to handle token refresh
 api.interceptors.response.use(
-    (response) => response,
-    async (error) => {
-        const originalRequest = error.config;
+  (response) => response,
+  async (error) => {
+    const originalRequest = error.config
 
-        // If the error is 401 and we haven't tried to refresh the token yet
-        if (error.response?.status === 401 && !originalRequest._retry) {
-            originalRequest._retry = true;
+    // If the error is 401 and we haven't tried to refresh the token yet
+    if (error.response?.status === 401 && !originalRequest._retry) {
+      originalRequest._retry = true
 
-            try {
-                const refreshToken = await AsyncStorage.getItem('refresh_token');
-                if (!refreshToken) {
-                    // Instead of throwing an error, you might want to redirect to login
-                    console.log('No refresh token available, redirecting to login');
-                    // You could use a global event system or navigation reference here
-                    // For example: EventEmitter.emit('SESSION_EXPIRED');
-                    return Promise.reject(new Error('Authentication required'));
-                }
-
-                // Rest of your refresh token logic...
-            } catch (refreshError) {
-                // ...
-            }
+      try {
+        const refreshToken = await AsyncStorage.getItem("refresh_token")
+        if (!refreshToken) {
+          console.log("No refresh token available, redirecting to login")
+          return Promise.reject(new Error("Authentication required"))
         }
 
-        return Promise.reject(error);
+        // Try to refresh the token
+        const response = await api.post("users/refresh/", { refresh: refreshToken })
+
+        if (response.data.access) {
+          await storeTokens(response.data.access, refreshToken)
+          ;(global as any).access_token = response.data.access
+
+          // Retry the original request with new token
+          originalRequest.headers.Authorization = `Bearer ${response.data.access}`
+          return api(originalRequest)
+        }
+      } catch (refreshError) {
+        console.error("Token refresh failed:", refreshError)
+        // Clear tokens and redirect to login
+        await AsyncStorage.multiRemove(["access_token", "refresh_token", "user_id", "is_verified"])
+        ;(global as any).access_token = null
+        return Promise.reject(new Error("Session expired"))
+      }
     }
-);
+
+    return Promise.reject(error)
+  },
+)
+
 export const ownerAPI = {
     // Authentication methods
-    login: async (phone_number: string, password: string) => {
+     login: async (phone_number: string, password: string) => {
         const response = await api.post('users/login/', { phone_number, password });
         
         // Store tokens after successful login
         if (response.data.access && response.data.refresh) {
             await storeTokens(response.data.access, response.data.refresh);
             (global as any).access_token = response.data.access;
+            
+            // Add this line to store current user ID
+            const decodedToken: any = jwtDecode(response.data.access);
+            await AsyncStorage.setItem('current_user_id', decodedToken.user_id.toString());
         }
-        
         
         return response.data;
     },
@@ -129,12 +161,22 @@ export const ownerAPI = {
         const response = await api.post('users/create/', userData);
         return response.data;
     },
+
+    getAllUsers: async () => {
+    try {
+      const response = await api.get('users/');
+      return response.data;
+    } catch (error) {
+      console.error("Error fetching users:", error);
+      throw error;
+    }
+  },
     
     getUserInfo: async (userId?: string) => {
         // If userId is provided, get specific user, otherwise get current user
         const endpoint = userId ? `users/${userId}/retrieve/` : 'users/me/'; // Adjust based on your API
         try {
-            const response = await api.post(endpoint); // Use GET request
+            const response = await api.post(endpoint); // Use POST request as per backend configuration
             return response.data;
         } catch (error) {
             console.error('Error fetching user info:', error);
@@ -231,30 +273,33 @@ export const ownerAPI = {
     },
 };
 
+
 export const storeTokens = async (accessToken: string, refreshToken: string) => {
-    try {
-        // Decode JWT to get user details
-        const decodedToken: any = jwtDecode(accessToken);
-        console.log("Decoded Token:", decodedToken); // Debugging output
+  try {
+    // Decode JWT to get user details
+    const decodedToken: any = jwtDecode(accessToken)
+    console.log("Decoded Token:", decodedToken)
 
-        const userId = decodedToken.user_id; // Assuming user_id is in the token
-        const isVerified = decodedToken.status_verification === "verified"; // Check if status is "verified"
+    const userId = decodedToken.user_id
+    const isVerified = decodedToken.status_verification === "verified"
 
-        if (userId === undefined || decodedToken.status_verification === undefined) {
-            throw new Error("User ID or verification status not found in token");
-        }
-
-        // Store tokens, user ID, and verification status securely
-        await AsyncStorage.setItem('access_token', accessToken);
-        await AsyncStorage.setItem('refresh_token', refreshToken);
-        await AsyncStorage.setItem('user_id', userId.toString()); // Convert number to string before storing
-        await AsyncStorage.setItem('is_verified', isVerified.toString()); // Store verification status as boolean string
-
-        return true;
-    } catch (error) {
-        console.error('Error storing tokens:', error);
-        return false;
+    if (userId === undefined || decodedToken.status_verification === undefined) {
+      throw new Error("User ID or verification status not found in token")
     }
-};
 
+    // Store tokens, user ID, and verification status securely
+    await AsyncStorage.setItem("access_token", accessToken)
+    await AsyncStorage.setItem("refresh_token", refreshToken)
+    await AsyncStorage.setItem("user_id", userId.toString())
+    await AsyncStorage.setItem("is_verified", isVerified.toString())
 
+    return true
+  } catch (error) {
+    console.error("Error storing tokens:", error)
+    return false
+  }
+}
+
+// Legacy exports for backward compatibility
+export const userAPI = ownerAPI
+export const userService = ownerAPI

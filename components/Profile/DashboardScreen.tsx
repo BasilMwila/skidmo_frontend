@@ -1,7 +1,6 @@
-import React from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, SafeAreaView } from 'react-native';
-import { ArrowLeft, Home, Search, Heart, MessageCircle, User } from 'react-native-feather';
 import { Link, useNavigation, useRouter } from 'expo-router';
+import React from 'react';
+import { SafeAreaView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import BottomNavigation from '../BottomNavigation';
 
 const Dashboard = () => {

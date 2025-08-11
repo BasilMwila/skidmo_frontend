@@ -39,6 +39,7 @@
     "package.json": "^2.0.1",
     "react": "^19.0.0",
     "react-dom": "^19.0.0",
+    "react-error-boundary": "^6.0.0",
     "react-native": "0.79.2",
     "react-native-feather": "^1.1.2",
     "react-native-gesture-handler": "~2.24.0",
@@ -51,7 +52,8 @@
     "react-native-screens": "~4.10.0",
     "react-native-web": "~0.20.0",
     "react-native-webview": "13.13.5",
-    "skidmo": "file:"
+    "skidmo": "file:",
+    "expo-location": "~18.1.6"
   },
   "devDependencies": {
     "@babel/core": "^7.25.2",

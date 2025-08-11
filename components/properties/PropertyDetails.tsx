@@ -1,634 +1,929 @@
-import React, { useState, useEffect } from 'react';
+"use client"
+import { messagingAPI } from "@/services/messaging"
+import { propertiesAPI } from "@/services/propertiesApi"
+import { Ionicons } from "@expo/vector-icons"
+import { useLocalSearchParams, useRouter } from "expo-router"
+import { useEffect, useState } from "react"
 import {
-  View,
-  Text,
+  ActivityIndicator,
+  Alert,
+  Dimensions,
   Image,
-  StyleSheet,
-  ScrollView,
-  TouchableOpacity,
   SafeAreaView,
-  StatusBar,
-  Linking,
-  ActivityIndicator
-} from 'react-native';
-import { useLocalSearchParams, router, useRouter, useNavigation } from 'expo-router';
-import { 
-  Ionicons, 
-  MaterialIcons, 
-  MaterialCommunityIcons,
-  FontAwesome,
-  Feather 
-} from '@expo/vector-icons';
-import { propertiesAPI } from '@/services/propertiesApi';
+  ScrollView,
+  Share,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  View,
+} from "react-native"
+// @ts-ignore: wishlistAPI may not be exported in all setups
+import { wishlistAPI } from "@/services/wishlistAPI"
+import AsyncStorage from "@react-native-async-storage/async-storage"
 
-const PropertyDetails = () => {
-  const { id } = useLocalSearchParams();
-  const [property, setProperty] = useState<any>(null);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-  const [showFullDescription, setShowFullDescription] = useState(false);
-  const navigation = useNavigation();
-  const router = useRouter();
-    
-      useEffect(() => {
-        navigation.setOptions({ title: 'Property Details' });
-      }, [navigation]);
-    
+const { width } = Dimensions.get("window")
+
+const ApartmentDetailScreen = () => {
+  const router = useRouter()
+  const params = useLocalSearchParams()
+  const propertyId = params.id ? Number(params.id) : null
+
+  const [property, setProperty] = useState<any>(null)
+  const [loading, setLoading] = useState(true)
+  const [isWishlisted, setIsWishlisted] = useState(false)
+  const [currentImageIndex, setCurrentImageIndex] = useState(0)
+  const [isLoggedIn, setIsLoggedIn] = useState(false)
+  const [showMoreDescription, setShowMoreDescription] = useState(false)
 
   useEffect(() => {
-    const fetchProperty = async () => {
-      try {
-        const propertyId = Array.isArray(id) ? id[0] : id;
-        // Determine which API endpoint to use based on property type
-        let data;
-        if (propertyId.startsWith('APT')) {
-          data = await propertiesAPI.apartment.get(parseInt(propertyId.replace('APT', '')));
-        } else if (propertyId.startsWith('HSE')) {
-          data = await propertiesAPI.house.get(parseInt(propertyId.replace('HSE', '')));
-        } else if (propertyId.startsWith('COM')) {
-          data = await propertiesAPI.commercial.get(parseInt(propertyId.replace('COM', '')));
-        } else {
-          throw new Error('Invalid property ID format');
-        }
-        setProperty(data);
-      } catch (err) {
-        console.error('Failed to fetch property:', err);
-        setError('Failed to load property details. Please try again.');
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    fetchProperty();
-  }, [id]);
-
-  const handleContact = () => {
-    if (property?.lister?.phone_number) {
-      Linking.openURL(`tel:${property.lister.phone_number}`);
+    if (propertyId) {
+      loadProperty()
+      checkLoginStatus()
+      checkWishlistStatus()
     }
-  };
+  }, [propertyId])
 
-  const renderAmenitySection = (title: string, items: any[]) => {
-    if (!items || items.length === 0) return null;
-    
-    return (
-      <View style={styles.amenitySection}>
-        <View style={styles.amenityHeader}>
-          <Text style={styles.amenityTitle}>{title}</Text>
+  const checkLoginStatus = async () => {
+    try {
+      const userId = await AsyncStorage.getItem("user_id")
+      setIsLoggedIn(!!userId)
+    } catch (error) {
+      console.error("Error checking login status:", error)
+    }
+  }
+
+ const loadProperty = async () => {
+  try {
+    setLoading(true);
+    if (propertyId) {
+      const propertyData = await propertiesAPI.getProperty(propertyId);
+      console.log('Fetched property data:', JSON.stringify(propertyData, null, 2)); // 🔥 LOG
+      setProperty(propertyData);
+    }
+  } catch (error) {
+    console.error("Error loading property:", error);
+    Alert.alert("Error", "Failed to load property details");
+    router.back();
+  } finally {
+    setLoading(false);
+  }
+};
+  const checkWishlistStatus = async () => {
+    try {
+      if (propertyId && isLoggedIn) {
+        const wishlistItems = await wishlistAPI.getWishlist()
+        const isInWishlist = wishlistItems.some((item: any) => item.property?.id === propertyId)
+        setIsWishlisted(isInWishlist)
+      }
+    } catch (error) {
+      console.error("Error checking wishlist status:", error)
+    }
+  }
+
+  const toggleWishlist = async () => {
+    if (!isLoggedIn) {
+      Alert.alert("Login Required", "Please log in to add items to your wishlist")
+      return
+    }
+
+    try {
+      if (isWishlisted) {
+        await wishlistAPI.removeFromWishlist(propertyId!)
+        setIsWishlisted(false)
+        Alert.alert("Removed", "Property removed from wishlist")
+      } else {
+        await wishlistAPI.addToWishlist(propertyId!)
+        setIsWishlisted(true)
+        Alert.alert("Added", "Property added to wishlist")
+      }
+    } catch (error) {
+      console.error("Error toggling wishlist:", error)
+      Alert.alert("Error", "Failed to update wishlist")
+    }
+  }
+
+  const shareProperty = async () => {
+  try {
+    if (!property) return;
+
+    const purpose = (property.purpose || '').trim().toUpperCase();
+
+    // Get correct price
+    const price = purpose === 'RENT'
+      ? property.rental_price
+      : purpose === 'SALE'
+        ? property.sale_price
+        : property.price;
+
+    const numericPrice = parseFloat(price || '0');
+    const formattedPrice = `K${isNaN(numericPrice) ? '0.00' : numericPrice.toFixed(2)}`;
+
+    // Determine unit
+    let priceUnit = '';
+    if (purpose === 'RENT') {
+      const term = (property.term_category || '').trim().toUpperCase();
+      if (term.includes('SHORT') || term.includes('DAY')) {
+        priceUnit = ' per day';
+      } else {
+        priceUnit = ' per month'; // Safe default
+      }
+    }
+
+    await Share.share({
+      message: `Check out this ${property.property_type.toLowerCase()}: ${property.title}
+Price: ${formattedPrice}${priceUnit}
+Location: ${property.address}
+${purpose === 'RENT' ? 'Available for rent' : 'For sale'}`,
+      title: property.title,
+    });
+  } catch (error) {
+    console.error('Error sharing property:', error);
+  }
+};
+
+
+  const handleBooking = () => {
+    if (!isLoggedIn) {
+      Alert.alert("Login Required", "Please log in to book this property")
+      return
+    }
+    // @ts-ignore: Path may not be in router types
+    router.push({
+      pathname: "/reserve",
+      params: {
+        propertyId: propertyId?.toString(),
+        propertyType: "apartment",
+      },
+    })
+  }
+
+
+  //Message handling
+  const handleMessagePress = async (property: Property) => {
+    // Check for owner_id from multiple sources
+    const ownerId = property.owner_id || property.lister?.id?.toString()
+
+    if (!ownerId) {
+      Alert.alert("Error", "Owner information not available")
+      return
+    }
+
+    try {
+      // Get current user ID (ensure it's a number)
+      const currentUserId = Number(await AsyncStorage.getItem("user_id"))
+      const ownerIdNumber = Number(ownerId)
+
+      if (!currentUserId || !ownerIdNumber) {
+        Alert.alert("Error", "User information not available")
+        return
+      }
+
+      console.log("Starting conversation between:", currentUserId, ownerIdNumber)
+
+      // Create or get thread
+      const thread = await messagingAPI.createOrGetThread(currentUserId, ownerIdNumber)
+
+      // Prepare property details to pass to chat
+      const propertyDetails = {
+        id: property.id.toString(),
+        title: property.title,
+        price:
+          property.rental_price != null
+            ? `K${property.rental_price}`
+            : property.price != null
+              ? `K${property.price.toFixed(2)}`
+              : "Price on request",
+        address: property.address,
+        number_of_rooms: property.bedroom_count || 0,
+        number_of_bathrooms: property.bathroom_count || 0,
+        image: property.photos && property.photos.length > 0 ? property.photos[0].image : null,
+      }
+
+      // Navigate to chat screen with property details
+      router.push({
+        pathname: "/chat",
+        params: {
+          threadId: thread.id.toString(),
+          userId: ownerIdNumber.toString(),
+          propertyId: property.id.toString(),
+          userName: property.lister?.name || "Property Owner",
+          propertyDetails: JSON.stringify(propertyDetails),
+        },
+      })
+    } catch (error) {
+      console.error("Error starting conversation:", error)
+      Alert.alert("Error", "Failed to start conversation. Please try again.")
+    }
+  }
+  // Helper to get image URLs from property.photos
+  const getImageUrls = () => {
+    if (property?.photos && Array.isArray(property.photos) && property.photos.length > 0) {
+      return property.photos.map((photo: any) => photo.image)
+    }
+    return []
+  }
+
+  // Helper to get price
+  const getDisplayPrice = () => {
+    if (!property) return 0
+    return property.rental_price ?? property.sale_price ?? property.price ?? 0
+  }
+
+  const getPriceInfo = () => {
+  if (!property) return { price: 0, unit: '' };
+
+  const purpose = property.purpose?.trim().toUpperCase();
+  const term = (property.term_category || '').trim().toUpperCase();
+
+  const price = property.rental_price ?? property.sale_price ?? property.price ?? 0;
+  const formattedPrice = `K${parseFloat(price).toFixed(0)}`; // No decimals
+
+  let unit = '';
+  if (purpose === 'RENT') {
+    unit = term === 'SHORT' ? '/day' : '/month';
+  }
+
+  return { price: formattedPrice, unit };
+};
+
+  const renderImageCarousel = () => {
+    const images = getImageUrls()
+    if (!images || images.length === 0) {
+      return (
+        <View style={styles.imagePlaceholder}>
+          <Ionicons name="image-outline" size={64} color="#ccc" />
+          <Text style={styles.imagePlaceholderText}>No images available</Text>
         </View>
-        <View style={styles.amenityItems}>
-          {items.map((item, index) => (
-            <View key={index} style={styles.amenityItem}>
-              <MaterialIcons name="check-circle" size={16} color="#00a651" />
-              <Text style={styles.amenityText}>{item}</Text>
-            </View>
+      )
+    }
+
+    return (
+      <View style={styles.imageContainer}>
+        <ScrollView
+          horizontal
+          pagingEnabled
+          showsHorizontalScrollIndicator={false}
+          onMomentumScrollEnd={(event) => {
+            const index = Math.round(event.nativeEvent.contentOffset.x / width)
+            setCurrentImageIndex(index)
+          }}
+        >
+          {images.map((image: string, index: number) => (
+            <Image key={index} source={{ uri: image }} style={styles.propertyImage} />
           ))}
+        </ScrollView>
+
+        {/* Navigation arrows */}
+        <TouchableOpacity style={styles.leftArrow}>
+          <Ionicons name="chevron-back" size={24} color="#fff" />
+        </TouchableOpacity>
+        <TouchableOpacity style={styles.rightArrow}>
+          <Ionicons name="chevron-forward" size={24} color="#fff" />
+        </TouchableOpacity>
+
+        {/* Image counter */}
+        <View style={styles.imageCounter}>
+          <Text style={styles.imageCounterText}>
+            {currentImageIndex + 1}/{images.length}
+          </Text>
+        </View>
+
+        {/* Top right buttons */}
+        <View style={styles.topRightButtons}>
+          <TouchableOpacity style={styles.topButton} onPress={toggleWishlist}>
+            <Ionicons
+              name={isWishlisted ? "heart" : "heart-outline"}
+              size={24}
+              color={isWishlisted ? "#ff4444" : "#fff"}
+            />
+          </TouchableOpacity>
+          <TouchableOpacity style={styles.topButton} onPress={shareProperty}>
+            <Ionicons name="chatbubble-outline" size={24} color="#fff" />
+          </TouchableOpacity>
         </View>
       </View>
-    );
-  };
+    )
+  }
 
-  const renderBooleanFeature = (value: boolean) => {
-    return value ? (
-      <Text style={styles.featureAvailable}>Yes</Text>
-    ) : (
-      <Text style={styles.featureUnavailable}>No</Text>
-    );
-  };
+  const mockReviews = [
+    {
+      id: 1,
+      name: "Annabel",
+      rating: 5,
+      timeAgo: "1 week ago",
+      comment: "I thoroughly enjoyed my stay, I felt at home and the pictures don't do it justice",
+      avatar: "A",
+    },
+    {
+      id: 2,
+      name: "Kangwa",
+      rating: 5,
+      timeAgo: "2 week ago",
+      comment: "I thoroughly enjoyed my stay, I felt at home and the pictures don't do it justice",
+      avatar: "D",
+    },
+  ]
+
+  const mockAmenities = [
+    { icon: "eye-outline", text: "Garden view" },
+    { icon: "business-outline", text: "Balcony" },
+    { icon: "home-outline", text: "Patio" },
+    { icon: "water-outline", text: "Private pool" },
+    { icon: "leaf-outline", text: "Private garden" },
+    { icon: "ban-outline", text: "No smoking" },
+    { icon: "ban-outline", text: "No pets" },
+  ]
+
+  const mockDetailedAmenities = [
+    {
+      category: "Bathroom",
+      items: "Bath, hair dryer, shampoo, conditioner, shower gel, outdoor shower, hot water",
+    },
+    {
+      category: "Bedroom and laundry",
+      items: "Washing machine, free dryer, essentials, hangers, bed linens, extra pillows and blankets",
+    },
+    {
+      category: "Other amenities",
+      items: "Beach essentials, self check-in, parking space",
+    },
+  ]
 
   if (loading) {
     return (
-      <View style={styles.loadingContainer}>
-        <ActivityIndicator size="large" color="#00a651" />
-      </View>
-    );
-  }
-
-  if (error) {
-    return (
-      <View style={styles.errorContainer}>
-        <Text style={styles.errorText}>{error}</Text>
-        <TouchableOpacity 
-          style={styles.retryButton}
-          onPress={() => router.back()}
-        >
-          <Text style={styles.retryButtonText}>Go Back</Text>
-        </TouchableOpacity>
-      </View>
-    );
+      <SafeAreaView style={styles.container}>
+        <View style={styles.loadingContainer}>
+          <ActivityIndicator size="large" color="#4CAF50" />
+          <Text style={styles.loadingText}>Loading property details...</Text>
+        </View>
+      </SafeAreaView>
+    )
   }
 
   if (!property) {
     return (
-      <View style={styles.errorContainer}>
-        <Text style={styles.errorText}>Property not found</Text>
-        <TouchableOpacity 
-          style={styles.retryButton}
-          onPress={() => router.back()}
-        >
-          <Text style={styles.retryButtonText}>Go Back</Text>
-        </TouchableOpacity>
-      </View>
-    );
+      <SafeAreaView style={styles.container}>
+        <View style={styles.errorContainer}>
+          <Ionicons name="alert-circle-outline" size={64} color="#ff4444" />
+          <Text style={styles.errorText}>Property not found</Text>
+          <TouchableOpacity style={styles.backButton} onPress={() => router.back()}>
+            <Text style={styles.backButtonText}>Go Back</Text>
+          </TouchableOpacity>
+        </View>
+      </SafeAreaView>
+    )
   }
-
-  // Extract common property details
-  const price = property.purpose === 'RENT' ? property.rental_price : property.sale_price;
-  const priceUnit = property.term_category === 'SHORT' ? '/night' : '/month';
-  const propertyType = property.property_type.toLowerCase().replace('_', ' ');
-  const purchaseType = property.purpose.toLowerCase();
 
   return (
     <SafeAreaView style={styles.container}>
-      <StatusBar barStyle="dark-content" />
-      <ScrollView showsVerticalScrollIndicator={false}>
-        {/* Header Image */}
-        <View style={styles.headerImageContainer}>
-          <Image
-            source={property.photos?.[0]?.image ? { uri: property.photos[0].image } : require('@/assets/appartments/1.jpg')}
-            style={styles.headerImage}
-          />
-          <TouchableOpacity 
-            style={styles.backButton} 
-            onPress={() => router.back()}
-          >
-            <Ionicons name="arrow-back" size={24} color="white" />
+      <ScrollView style={styles.scrollView} showsVerticalScrollIndicator={false}>
+        {renderImageCarousel()}
+
+        <View style={styles.contentContainer}>
+          {/* Online Tour Button */}
+          <TouchableOpacity style={styles.onlineTourButton}>
+            <Ionicons name="videocam-outline" size={16} color="#666" />
+            <Text style={styles.onlineTourText}>Online tour</Text>
           </TouchableOpacity>
-          <View style={styles.termBadge}>
-            <Text style={styles.termBadgeText}>
-              {property.term_category === 'SHORT' ? 'Short Term' : 'Long Term'}
-            </Text>
-          </View>
+
+          {/* Property Title and Price */}
+         {/* Property Title and Price */}
+      <View style={styles.headerSection}>
+        <View style={styles.priceAndUnitContainer}>
+          <Text style={styles.propertyPrice}>{getPriceInfo().price}</Text>
+          {getPriceInfo().unit ? (
+            <Text style={styles.priceUnit}>{getPriceInfo().unit}</Text>
+          ) : null}
         </View>
+        <View style={styles.ratingContainer}>
+          <Ionicons name="star" size={16} color="#FFD700" />
+          <Text style={styles.ratingText}>4.84 (19)</Text>
+        </View>
+      </View>
 
-        {/* Basic Info Section */}
-        <View style={styles.infoContainer}>
-          <View style={styles.priceRatingRow}>
-            <Text style={styles.priceText}>
-              K{price?.toFixed(2) || 'N/A'} <Text style={styles.priceUnit}>{priceUnit}</Text>
-            </Text>
-            {property.rating && (
-              <View style={styles.ratingContainer}>
-                <FontAwesome name="star" size={14} color="#FFD700" />
-                <Text style={styles.ratingText}>{property.rating.toFixed(1)}</Text>
-              </View>
-            )}
-          </View>
-
-          <Text style={styles.propertyTitle}>{property.title}</Text>
-          <Text style={styles.propertyType}>
-            {propertyType} for {purchaseType}
+          {/* Property Details */}
+          <Text style={styles.propertyDetails}>
+            {property.bedroom_count} bedroom{property.bedroom_count !== 1 ? 's' : ''}, {property.room_count || property.bedroom_count} room{property.room_count !== 1 ? 's' : ''}
           </Text>
-          <Text style={styles.locationText}>{property.address}</Text>
 
-          {/* Contact Button */}
-          {property.lister?.phone_number && (
-            <TouchableOpacity 
-              style={styles.contactButton} 
-              onPress={handleContact}
-            >
-              <Ionicons name="call" size={18} color="white" />
-              <Text style={styles.contactButtonText}> {property.lister.phone_number}</Text>
-            </TouchableOpacity>
-          )}
-        </View>
 
-        {/* Property Details Section */}
-        <View style={styles.sectionContainer}>
-          <Text style={styles.sectionTitle}>Property Details</Text>
-          
-          <View style={styles.detailsGrid}>
-            <View style={styles.detailItem}>
-              <MaterialCommunityIcons name="bed" size={20} color="#00a651" />
-              <Text style={styles.detailText}>{property.bedroom_count || 'N/A'} Bedrooms</Text>
-            </View>
-            
-            <View style={styles.detailItem}>
-              <MaterialCommunityIcons name="shower" size={20} color="#00a651" />
-              <Text style={styles.detailText}>{property.bathroom_count || 'N/A'} Bathrooms</Text>
-            </View>
-            
-            {property.year_of_construction && (
-              <View style={styles.detailItem}>
-                <MaterialIcons name="foundation" size={20} color="#00a651" />
-                <Text style={styles.detailText}>Built in {property.year_of_construction}</Text>
-              </View>
-            )}
-            
-            <View style={styles.detailItem}>
-              <MaterialIcons name="security" size={20} color="#00a651" />
-              <Text style={styles.detailText}>Security: {renderBooleanFeature(property.security)}</Text>
-            </View>
+         <Text style={styles.locationText}>{property.address}</Text>
+
+          {/* Map Section */}
+          <View style={styles.mapContainer}>
+            <Image source={{ uri: "/placeholder.svg?height=200&width=350" }} style={styles.mapImage} />
           </View>
-        </View>
 
-        {/* Description Section */}
-        <View style={styles.sectionContainer}>
-          <Text style={styles.sectionTitle}>Description</Text>
-          <Text style={styles.descriptionText}>
-            {showFullDescription ? property.description : `${property.description.substring(0, 150)}...`}
-          </Text>
-          {property.description.length > 150 && (
-            <TouchableOpacity 
-              style={styles.showMoreButton}
-              onPress={() => setShowFullDescription(!showFullDescription)}
-            >
-              <Text style={styles.showMoreText}>
-                {showFullDescription ? 'Show less' : 'Show more'}
-              </Text>
-              <Ionicons 
-                name={showFullDescription ? "chevron-up" : "chevron-down"} 
-                size={16} 
-                color="#00a651" 
-              />
-            </TouchableOpacity>
-          )}
-        </View>
-
-        {/* Features Section */}
-        <View style={styles.sectionContainer}>
-          <Text style={styles.sectionTitle}>Features</Text>
-          
-          <View style={styles.featuresGrid}>
-            <View style={styles.featureItem}>
-              <MaterialIcons name="balcony" size={24} color="#00a651" />
-              <Text style={styles.featureLabel}>Balcony</Text>
-              {renderBooleanFeature(property.has_balcony)}
-            </View>
-            
-            <View style={styles.featureItem}>
-              <MaterialIcons name="deck" size={24} color="#00a651" />
-              <Text style={styles.featureLabel}>Patio</Text>
-              {renderBooleanFeature(property.has_patio)}
-            </View>
-            
-            <View style={styles.featureItem}>
-              <MaterialCommunityIcons name="pool" size={24} color="#00a651" />
-              <Text style={styles.featureLabel}>Pool</Text>
-              {renderBooleanFeature(property.has_pool)}
-            </View>
-            
-            <View style={styles.featureItem}>
-              <MaterialIcons name="grass" size={24} color="#00a651" />
-              <Text style={styles.featureLabel}>Garden</Text>
-              <Text style={styles.featureValue}>{property.garden || 'None'}</Text>
-            </View>
-            
-            <View style={styles.featureItem}>
-              <MaterialIcons name="pets" size={24} color="#00a651" />
-              <Text style={styles.featureLabel}>Pet Friendly</Text>
-              {renderBooleanFeature(property.pet_friendly)}
-            </View>
-            
-            <View style={styles.featureItem}>
-              <MaterialIcons name="smoking-rooms" size={24} color="#00a651" />
-              <Text style={styles.featureLabel}>Smoking Allowed</Text>
-              {renderBooleanFeature(property.allow_smoking)}
-            </View>
-          </View>
-        </View>
-
-        {/* Amenities Sections */}
-        <View style={styles.sectionContainer}>
-          <Text style={styles.sectionTitle}>Amenities</Text>
-          
-          {/* Check if any amenities exist */}
-          {(property.amenities?.length > 0 || 
-           property.bathroom_and_laundry?.length > 0 ||
-           property.kitchen_and_dining?.length > 0 ||
-           property.entertainment?.length > 0 ||
-           property.heating_and_cooling?.length > 0 ||
-           property.home_and_safety?.length > 0 ||
-           property.accessibility?.length > 0) ? (
-            <>
-              {renderAmenitySection("General Amenities", property.amenities)}
-              {renderAmenitySection("Bathroom & Laundry", property.bathroom_and_laundry)}
-              {renderAmenitySection("Kitchen & Dining", property.kitchen_and_dining)}
-              {renderAmenitySection("Entertainment", property.entertainment)}
-              {renderAmenitySection("Heating & Cooling", property.heating_and_cooling)}
-              {renderAmenitySection("Home Safety", property.home_and_safety)}
-              {renderAmenitySection("Accessibility", property.accessibility)}
-            </>
-          ) : (
-            <Text style={styles.noAmenitiesText}>No amenities listed for this property</Text>
-          )}
-        </View>
-
-        {/* Nearby Infrastructure */}
-        {property.nearby_infrastructure?.length > 0 && (
-          <View style={styles.sectionContainer}>
-            <Text style={styles.sectionTitle}>Nearby Infrastructure</Text>
-            <View style={styles.amenityItems}>
-              {property.nearby_infrastructure.map((item: string, index: number) => (
-                <View key={index} style={styles.amenityItem}>
-                  <MaterialIcons name="check-circle" size={16} color="#00a651" />
-                  <Text style={styles.amenityText}>{item}</Text>
+          {/* Property Features */}
+          <View style={styles.section}>
+            <Text style={styles.sectionTitle}>Property</Text>
+            <View style={styles.amenitiesGrid}>
+              {mockAmenities.map((amenity, index) => (
+                <View key={index} style={styles.amenityRow}>
+                  <Ionicons name={amenity.icon as any} size={20} color="#333" />
+                  <Text style={styles.amenityText}>{amenity.text}</Text>
                 </View>
               ))}
             </View>
           </View>
-        )}
 
-        {/* Lister Information */}
-        {property.lister && (
-          <View style={styles.sectionContainer}>
-            <Text style={styles.sectionTitle}>Listed By</Text>
-            <View style={styles.listerInfo}>
-              <MaterialIcons 
-                name={property.lister.is_agent ? "business" : "person"} 
-                size={24} 
-                color="#00a651" 
-              />
-              <View>
-                <Text style={styles.listerText}>{property.lister.name}</Text>
-                <Text style={styles.listerType}>
-                  {property.lister.is_agent ? 'Real Estate Agent' : 'Property Owner'}
-                </Text>
+          {/* About This Space */}
+          <View style={styles.section}>
+            <Text style={styles.sectionTitle}>About this space</Text>
+            <Text style={styles.descriptionText}>
+              {property.description || 'No description provided.'}
+            </Text>
+            <TouchableOpacity onPress={() => setShowMoreDescription(!showMoreDescription)}>
+              <Text style={styles.showMoreText}>Show more</Text>
+            </TouchableOpacity>
+          </View>
+
+          {/* Detailed Amenities */}
+          <View style={styles.section}>
+            <Text style={styles.sectionTitle}>Amenities</Text>
+            {mockDetailedAmenities.map((category, index) => (
+              <View key={index} style={styles.amenityCategoryContainer}>
+                <View style={styles.amenityCategoryHeader}>
+                  <Ionicons name="checkmark-circle-outline" size={20} color="#333" />
+                  <Text style={styles.amenityCategoryTitle}>{category.category}</Text>
+                </View>
+                <Text style={styles.amenityCategoryItems}>{category.items}</Text>
+              </View>
+            ))}
+
+            <View style={styles.amenityCategoryContainer}>
+              <View style={styles.amenityCategoryHeader}>
+                <Ionicons name="shield-checkmark-outline" size={20} color="#333" />
+                <Text style={styles.amenityCategoryTitle}>Security</Text>
+              </View>
+              <Text style={styles.amenityCategoryItems}>Yes</Text>
+            </View>
+          </View>
+
+          {/* Reviews Section */}
+          <View style={styles.section}>
+            <Text style={styles.sectionTitle}>Reviews our guest</Text>
+            <View style={styles.reviewsContainer}>
+              {mockReviews.map((review) => (
+                <View key={review.id} style={styles.reviewItem}>
+                  <View style={styles.reviewHeader}>
+                    <View style={styles.reviewerAvatar}>
+                      <Text style={styles.reviewerAvatarText}>{review.avatar}</Text>
+                    </View>
+                    <View style={styles.reviewerInfo}>
+                      <Text style={styles.reviewerName}>{review.name}</Text>
+                      <View style={styles.reviewRating}>
+                        {[...Array(5)].map((_, i) => (
+                          <Ionicons key={i} name="star" size={12} color={i < review.rating ? "#FFD700" : "#E0E0E0"} />
+                        ))}
+                        <Text style={styles.reviewTime}>{review.timeAgo}</Text>
+                      </View>
+                    </View>
+                  </View>
+                  <Text style={styles.reviewComment}>{review.comment}</Text>
+                </View>
+              ))}
+            </View>
+            <TouchableOpacity style={styles.showAllReviewsButton}>
+              <Text style={styles.showAllReviewsText}>Show all reviews</Text>
+            </TouchableOpacity>
+          </View>
+
+          {/* Listed By Section */}
+          <View style={styles.section}>
+            <Text style={styles.sectionTitle}>Listed by</Text>
+            <View style={styles.agentContainer}>
+              <View style={styles.agentAvatar}>
+                <Text style={styles.agentAvatarText}>L</Text>
+              </View>
+              <View style={styles.agentInfo}>
+                <Text style={styles.agentRole}>Agent</Text>
+                <Text style={styles.agentId}>Agent ID</Text>
+                <Text style={styles.agentName}>Marta</Text>
               </View>
             </View>
           </View>
-        )}
 
-        {/* Status and ID */}
-        <View style={styles.footerContainer}>
-          <Text style={styles.statusText}>Status: {property.status || 'Available'}</Text>
-          <Text style={styles.idText}>Property ID: {property.id}</Text>
+          {/* Published Date */}
+          <Text style={styles.publishedDate}>Published on: 09.01.2025</Text>
+
+          {/* Bottom spacing for floating buttons */}
+          <View style={styles.bottomSpacing} />
         </View>
       </ScrollView>
+
+      {/* Floating Action Buttons */}
+      <View style={styles.floatingButtons}>
+        <TouchableOpacity style={styles.reserveButton} onPress={handleBooking}>
+          <Text style={styles.buttonText}>Reserve</Text>
+        </TouchableOpacity>
+        <TouchableOpacity style={styles.messageButton} onPress={() => handleMessagePress(property)}>
+          <Text style={styles.buttonText}>Message</Text>
+        </TouchableOpacity>
+      </View>
+
+      {/* Bottom Navigation */}
+      <View style={styles.bottomNavigation}>
+        <TouchableOpacity style={styles.navItem}>
+          <Ionicons name="home-outline" size={24} color="#666" />
+          <Text style={styles.navText}>Home</Text>
+        </TouchableOpacity>
+        <TouchableOpacity style={styles.navItem}>
+          <Ionicons name="search-outline" size={24} color="#666" />
+          <Text style={styles.navText}>Explore</Text>
+        </TouchableOpacity>
+        <TouchableOpacity style={styles.navItem}>
+          <Ionicons name="heart-outline" size={24} color="#666" />
+          <Text style={styles.navText}>Wishlists</Text>
+        </TouchableOpacity>
+        <TouchableOpacity style={styles.navItem}>
+          <Ionicons name="chatbubble-outline" size={24} color="#4CAF50" />
+          <Text style={[styles.navText, { color: "#4CAF50" }]}>Messages</Text>
+        </TouchableOpacity>
+        <TouchableOpacity style={styles.navItem}>
+          <Ionicons name="person-outline" size={24} color="#666" />
+          <Text style={styles.navText}>Log in</Text>
+        </TouchableOpacity>
+      </View>
     </SafeAreaView>
-  );
-};
+  )
+}
 
 const styles = StyleSheet.create({
+  // ... (all styles from your provided code)
   container: {
     flex: 1,
-    backgroundColor: '#fff',
+    backgroundColor: "#fff",
+  },
+  scrollView: {
+    flex: 1,
   },
   loadingContainer: {
     flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  loadingText: {
+    marginTop: 12,
+    fontSize: 16,
+    color: "#666",
   },
   errorContainer: {
     flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    padding: 20,
+    justifyContent: "center",
+    alignItems: "center",
+    paddingHorizontal: 32,
   },
   errorText: {
-    color: '#ff4444',
-    fontSize: 16,
-    marginBottom: 20,
-    textAlign: 'center',
-  },
-  retryButton: {
-    backgroundColor: '#00a651',
-    paddingHorizontal: 20,
-    paddingVertical: 10,
-    borderRadius: 5,
-  },
-  retryButtonText: {
-    color: 'white',
-    fontWeight: '600',
-  },
-  headerImageContainer: {
-    position: 'relative',
-    height: 250,
-  },
-  headerImage: {
-    width: '100%',
-    height: '100%',
-    resizeMode: 'cover',
+    fontSize: 18,
+    color: "#666",
+    marginTop: 16,
+    textAlign: "center",
   },
   backButton: {
-    position: 'absolute',
-    top: 40,
-    left: 16,
-    backgroundColor: 'rgba(0,0,0,0.5)',
-    borderRadius: 20,
-    padding: 8,
+    marginTop: 24,
+    paddingHorizontal: 24,
+    paddingVertical: 12,
+    backgroundColor: "#4CAF50",
+    borderRadius: 8,
   },
-  termBadge: {
-    position: 'absolute',
-    top: 40,
-    right: 16,
-    backgroundColor: 'rgba(0, 166, 81, 0.8)',
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderRadius: 12,
-  },
-  termBadgeText: {
-    color: 'white',
-    fontSize: 12,
-    fontWeight: '600',
-  },
-  infoContainer: {
-    padding: 20,
-    borderBottomWidth: 1,
-    borderBottomColor: '#f0f0f0',
-  },
-  priceRatingRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 8,
-  },
-  priceText: {
-    fontSize: 24,
-    fontWeight: 'bold',
-    color: '#00a651',
-  },
-  priceUnit: {
+  backButtonText: {
+    color: "#fff",
     fontSize: 16,
-    fontWeight: 'normal',
-    color: '#666',
+    fontWeight: "600",
   },
-  ratingContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: '#f5f5f5',
+  imageContainer: {
+    position: "relative",
+    height: 300,
+  },
+  propertyImage: {
+    width: width,
+    height: 300,
+    resizeMode: "cover",
+  },
+  imagePlaceholder: {
+    width: width,
+    height: 300,
+    backgroundColor: "#f5f5f5",
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  imagePlaceholderText: {
+    marginTop: 8,
+    fontSize: 16,
+    color: "#999",
+  },
+  leftArrow: {
+    position: "absolute",
+    left: 16,
+    top: "50%",
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: "rgba(0, 0, 0, 0.5)",
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  rightArrow: {
+    position: "absolute",
+    right: 16,
+    top: "50%",
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: "rgba(0, 0, 0, 0.5)",
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  imageCounter: {
+    position: "absolute",
+    bottom: 16,
+    right: 16,
+    backgroundColor: "rgba(0, 0, 0, 0.7)",
     paddingHorizontal: 12,
     paddingVertical: 6,
-    borderRadius: 12,
+    borderRadius: 16,
+  },
+  imageCounterText: {
+    color: "#fff",
+    fontSize: 12,
+    fontWeight: "500",
+  },
+  topRightButtons: {
+    position: "absolute",
+    top: 16,
+    right: 16,
+    flexDirection: "row",
+    gap: 8,
+  },
+  topButton: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: "rgba(0, 0, 0, 0.5)",
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  contentContainer: {
+    padding: 16,
+    paddingBottom: 120, // Extra space for floating buttons
+  },
+  onlineTourButton: {
+    flexDirection: "row",
+    alignItems: "center",
+    alignSelf: "flex-start",
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderWidth: 1,
+    borderColor: "#E0E0E0",
+    borderRadius: 6,
+    marginBottom: 16,
+  },
+  onlineTourText: {
+    fontSize: 14,
+    color: "#666",
+    marginLeft: 6,
+  },
+  headerSection: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    marginBottom: 8,
+  },
+  propertyPrice: {
+    fontSize: 24,
+    fontWeight: "bold",
+    color: "#333",
+  },
+  ratingContainer: {
+    flexDirection: "row",
+    alignItems: "center",
   },
   ratingText: {
-    marginLeft: 4,
-    fontSize: 14,
-    fontWeight: '600',
-  },
-  propertyTitle: {
-    fontSize: 22,
-    fontWeight: 'bold',
-    marginTop: 8,
-    color: '#333',
-  },
-  propertyType: {
     fontSize: 16,
-    color: '#666',
-    marginTop: 4,
-    textTransform: 'capitalize',
+    color: "#333",
+    marginLeft: 4,
+  },
+  propertyDetails: {
+    fontSize: 16,
+    color: "#666",
+    marginBottom: 4,
   },
   locationText: {
     fontSize: 16,
-    color: '#666',
-    marginVertical: 12,
+    color: "#666",
+    marginBottom: 20,
   },
-  contactButton: {
-    backgroundColor: '#00a651',
-    borderRadius: 8,
-    padding: 12,
-    flexDirection: 'row',
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginTop: 8,
+  mapContainer: {
+    marginBottom: 24,
   },
-  contactButtonText: {
-    color: 'white',
-    fontWeight: '600',
-    fontSize: 16,
-    marginLeft: 8,
+  mapImage: {
+    width: "100%",
+    height: 200,
+    borderRadius: 12,
+    backgroundColor: "#f5f5f5",
   },
-  sectionContainer: {
-    padding: 20,
-    borderBottomWidth: 1,
-    borderBottomColor: '#f0f0f0',
+  section: {
+    marginBottom: 24,
   },
   sectionTitle: {
     fontSize: 20,
-    fontWeight: 'bold',
-    marginBottom: 16,
-    color: '#333',
-  },
-  detailsGrid: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    justifyContent: 'space-between',
-  },
-  detailItem: {
-    width: '48%',
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: 15,
-  },
-  detailText: {
-    fontSize: 15,
-    marginLeft: 10,
-    color: '#333',
-  },
-  descriptionText: {
-    fontSize: 15,
-    lineHeight: 22,
-    color: '#333',
-  },
-  showMoreButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginTop: 8,
-  },
-  showMoreText: {
-    color: '#00a651',
-    fontWeight: '600',
-    fontSize: 15,
-    marginRight: 4,
-  },
-  featuresGrid: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    justifyContent: 'space-between',
-  },
-  featureItem: {
-    width: '48%',
-    flexDirection: 'column',
-    alignItems: 'center',
-    marginBottom: 15,
-    padding: 10,
-    backgroundColor: '#f9f9f9',
-    borderRadius: 8,
-  },
-  featureLabel: {
-    fontSize: 14,
-    fontWeight: '500',
-    marginTop: 8,
-    color: '#333',
-    textAlign: 'center',
-  },
-  featureValue: {
-    fontSize: 14,
-    fontWeight: '600',
-    marginTop: 4,
-    color: '#00a651',
-  },
-  featureAvailable: {
-    fontSize: 14,
-    fontWeight: '600',
-    marginTop: 4,
-    color: '#00a651',
-  },
-  featureUnavailable: {
-    fontSize: 14,
-    fontWeight: '600',
-    marginTop: 4,
-    color: '#ff4444',
-  },
-  amenitySection: {
+    fontWeight: "600",
+    color: "#333",
     marginBottom: 16,
   },
-  amenityHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: 8,
+  amenitiesGrid: {
+    gap: 12,
   },
-  amenityTitle: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: '#333',
-  },
-  amenityItems: {
-    marginLeft: 8,
-  },
-  amenityItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: 6,
+  amenityRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    paddingVertical: 8,
   },
   amenityText: {
-    fontSize: 14,
-    marginLeft: 8,
-    color: '#333',
-  },
-  noAmenitiesText: {
-    fontSize: 14,
-    color: '#666',
-    fontStyle: 'italic',
-  },
-  listerInfo: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  listerText: {
     fontSize: 16,
-    marginLeft: 10,
-    color: '#333',
-    fontWeight: '600',
+    color: "#333",
+    marginLeft: 12,
   },
-  listerType: {
+  descriptionText: {
+    fontSize: 16,
+    color: "#666",
+    lineHeight: 24,
+    marginBottom: 8,
+  },
+  showMoreText: {
+    fontSize: 16,
+    color: "#333",
+    textDecorationLine: "underline",
+  },
+  amenityCategoryContainer: {
+    marginBottom: 16,
+  },
+  amenityCategoryHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    marginBottom: 8,
+  },
+  amenityCategoryTitle: {
+    fontSize: 16,
+    fontWeight: "600",
+    color: "#333",
+    marginLeft: 8,
+  },
+  amenityCategoryItems: {
     fontSize: 14,
-    marginLeft: 10,
-    color: '#666',
+    color: "#666",
+    lineHeight: 20,
+    marginLeft: 28,
   },
-  footerContainer: {
-    padding: 20,
-    flexDirection: 'row',
-    justifyContent: 'space-between',
+  reviewsContainer: {
+    gap: 16,
+    marginBottom: 16,
   },
-  statusText: {
+  reviewItem: {
+    paddingBottom: 16,
+    borderBottomWidth: 1,
+    borderBottomColor: "#F0F0F0",
+  },
+  reviewHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    marginBottom: 8,
+  },
+  reviewerAvatar: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: "#4CAF50",
+    justifyContent: "center",
+    alignItems: "center",
+    marginRight: 12,
+  },
+  reviewerAvatarText: {
+    color: "#fff",
+    fontSize: 16,
+    fontWeight: "bold",
+  },
+  reviewerInfo: {
+    flex: 1,
+  },
+  reviewerName: {
+    fontSize: 16,
+    fontWeight: "600",
+    color: "#333",
+    marginBottom: 4,
+  },
+  reviewRating: {
+    flexDirection: "row",
+    alignItems: "center",
+  },
+  reviewTime: {
+    fontSize: 12,
+    color: "#666",
+    marginLeft: 8,
+  },
+  reviewComment: {
     fontSize: 14,
-    color: '#666',
+    color: "#666",
+    lineHeight: 20,
   },
-  idText: {
+  showAllReviewsButton: {
+    backgroundColor: "#E8F5E8",
+    paddingVertical: 12,
+    borderRadius: 8,
+    alignItems: "center",
+  },
+  showAllReviewsText: {
+    fontSize: 16,
+    color: "#4CAF50",
+    fontWeight: "500",
+  },
+  agentContainer: {
+    flexDirection: "row",
+    alignItems: "center",
+  },
+  agentAvatar: {
+    width: 50,
+    height: 50,
+    borderRadius: 25,
+    backgroundColor: "#4CAF50",
+    justifyContent: "center",
+    alignItems: "center",
+    marginRight: 12,
+  },
+  agentAvatarText: {
+    color: "#fff",
+    fontSize: 18,
+    fontWeight: "bold",
+  },
+  agentInfo: {
+    flex: 1,
+  },
+  agentRole: {
     fontSize: 14,
-    color: '#666',
+    color: "#666",
   },
-});
+  agentId: {
+    fontSize: 12,
+    color: "#999",
+  },
+  agentName: {
+    fontSize: 18,
+    fontWeight: "600",
+    color: "#333",
+  },
+  publishedDate: {
+    fontSize: 14,
+    color: "#666",
+    marginBottom: 20,
+  },
+  bottomSpacing: {
+    height: 80,
+  },
+  floatingButtons: {
+    position: "absolute",
+    bottom: 80,
+    left: 16,
+    right: 16,
+    flexDirection: "row",
+    gap: 12,
+  },
+  reserveButton: {
+    flex: 1,
+    backgroundColor: "#4CAF50",
+    paddingVertical: 16,
+    borderRadius: 8,
+    alignItems: "center",
+  },
+  messageButton: {
+    flex: 1,
+    backgroundColor: "#4CAF50",
+    paddingVertical: 16,
+    borderRadius: 8,
+    alignItems: "center",
+  },
+  buttonText: {
+    color: "#fff",
+    fontSize: 16,
+    fontWeight: "600",
+  },
+  bottomNavigation: {
+    flexDirection: "row",
+    backgroundColor: "#fff",
+    borderTopWidth: 1,
+    borderTopColor: "#E0E0E0",
+    paddingVertical: 8,
+  },
+  navItem: {
+    flex: 1,
+    alignItems: "center",
+    paddingVertical: 8,
+  },
+  navText: {
+    fontSize: 12,
+    color: "#666",
+    marginTop: 4,
+  },
+})
 
-export default PropertyDetails;
+export default ApartmentDetailScreen

@@ -64,16 +64,7 @@ export default function PaymentOptions() {
             <Text style={styles.paymentOptionText}>Mobile Money</Text>
           </TouchableOpacity>
           
-          <TouchableOpacity 
-            style={styles.paymentOption}
-            onPress={() => router.push('/payments/google')}
-          >
-            <View style={styles.digitalWalletIcons}>
-              <FontAwesome name="google" size={20} color="#000" style={styles.walletIcon} />
-              {/* <Ionicons name="logo-apple" size={20} color="#000" /> */}
-            </View>
-            <Text style={styles.paymentOptionText}>Digital Wallet</Text>
-          </TouchableOpacity>
+          
         </View>
       );
     }

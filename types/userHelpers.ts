@@ -1,5 +1,5 @@
 // @/services/userHelpers.ts
-import { ownerAPI } from '@/services/userApi';
+import { ownerAPI, api } from '@/services/userApi';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
 export const fetchCurrentUser = async (forceRefresh = false) => {
@@ -15,7 +15,9 @@ export const fetchCurrentUser = async (forceRefresh = false) => {
     if (!authenticated) return null;
     
     // Fetch fresh user data using getUserInfo (without userId to get current user)
-    const freshUserData = await ownerAPI.getUserInfo();
+    // Use the custom endpoint for current user
+    const response = await api.get('users/retrieve_me/');
+    const freshUserData = response.data;
     
     // Cache the fresh data
     await AsyncStorage.setItem('user', JSON.stringify(freshUserData));

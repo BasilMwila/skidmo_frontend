@@ -43,19 +43,33 @@ const MyListingsScreen = () => {
         // Combine all properties
         const allListings = [...apartments, ...houses, ...commercials, ...hotels];
         
-        const formattedListings = allListings.map(listing => ({
-          id: `${listing.property_type.substring(0, 3).toUpperCase()}${listing.id}`,
-          title: listing.title || 'Untitled Property',
-          location: listing.address,
-          price: `K${typeof listing.price === 'string' ? parseFloat(listing.price).toFixed(2) : '0.00'}`,
-          priceUnit: listing.purpose === 'RENT' ? 
-            (listing.term_category === 'SHORT' ? '/night' : '/month') : 
-            '',
-          image: listing.photos?.[0]?.image || 'https://placeholder.com/default-image.jpg',
-          propertyType: listing.property_type,
-          originalData: listing
-        }));
-        
+        const formattedListings = allListings.map(listing => {
+          // Determine which price to use based on purpose
+          const price = listing.purpose === 'RENT'
+            ? listing.rental_price
+            : listing.purpose === 'SALE'
+              ? listing.sale_price
+              : null;
+
+          // Format the price as K with 2 decimal places, fallback to '0.00'
+          const formattedPrice = typeof price === 'string' || typeof price === 'number'
+            ? `K${parseFloat(price).toFixed(2)}`
+            : 'K0.00';
+
+          return {
+            id: `${listing.property_type.substring(0, 3).toUpperCase()}${listing.id}`,
+            title: listing.title || 'Untitled Property',
+            location: listing.address,
+            price: formattedPrice,
+            priceUnit: listing.purpose === 'RENT'
+              ? (listing.term_category === 'SHORT' ? '/day' : '/month')
+              : '', // No unit for sale
+            image: listing.photos?.[0]?.image || 'https://placeholder.com/default-image.jpg',
+            propertyType: listing.property_type,
+            originalData: listing,
+          };
+        });
+                
         setListings(formattedListings);
         setShowEmptyState(formattedListings.length === 0);
       } catch (error) {
@@ -77,64 +91,46 @@ const MyListingsScreen = () => {
       await fetchMyListings();
     };
   
-    const handleEditListing = (listing) => {
-      // Determine the correct edit route based on property type
-      let editRoute;
-      switch (listing.propertyType) {
-        case 'APARTMENT':
-          editRoute = '/listings/edit/apartment/';
-          break;
-        case 'HOUSE':
-          editRoute = '/listings/edit/house/';
-          break;
-        case 'COMMERCIAL':
-          editRoute = '/listings/edit/commercial/';
-          break;
-        case 'HOTEL':
-          editRoute = '/listings/edit/hotel/';
-          break;
-        default:
-          editRoute = '/listings/edit/';
-      }
-      router.push(`${editRoute}${listing.id}`);
-    };
+  const handleEditListing = (listing) => {
+    router.push({
+      pathname: '/Listings/edit/[id]',
+      params: { id: listing.id, type: listing.propertyType },
+    });
+  };
 
-    const handleDeleteListing = async (listing) => {
+   const handleDeleteListing = async (listing) => {
       try {
-        Alert.alert(
-          'Confirm Delete',
-          'Are you sure you want to delete this listing?',
-          [
-            { text: 'Cancel', style: 'cancel' },
-            { 
-              text: 'Delete', 
-              style: 'destructive',
-              onPress: async () => {
-                // Determine the correct API endpoint based on property type
-                let deleteFunction;
-                switch (listing.propertyType) {
-                  case 'APARTMENT':
-                    deleteFunction = propertiesAPI.apartment.deleteMyProperty;
-                    break;
-                  case 'HOUSE':
-                    deleteFunction = propertiesAPI.house.deleteMyProperty;
-                    break;
-                  case 'COMMERCIAL':
-                    deleteFunction = propertiesAPI.commercial.deleteMyProperty;
-                    break;
-                    case 'HOTEL':
-                      deleteFunction = propertiesAPI.hotels.deleteMyProperty;
-                      break;
-                  default:
-                    throw new Error('Invalid property type');
-                }
-                
-                await deleteFunction(parseInt(listing.id.replace(/^\D+/g, '')));
-                fetchMyListings(); // Refresh the list after deletion
-              }
-            }
-          ]
-        );
+        console.log('Deleting listing:', listing); // Debug
+
+        const rawId = listing.id;
+        const numericId = parseInt(rawId.replace(/^\D+/g, ''), 10);
+
+        // Decide which ID format to use
+        const apiId = isNaN(numericId) ? rawId : numericId;
+
+        let deleteFunction;
+        switch (listing.propertyType) {
+          case 'APARTMENT':
+            deleteFunction = propertiesAPI.apartment.deleteMyProperty;
+            break;
+          case 'HOUSE':
+            deleteFunction = propertiesAPI.house.deleteMyProperty;
+            break;
+          case 'COMMERCIAL':
+            deleteFunction = propertiesAPI.commercial.deleteMyProperty;
+            break;
+          case 'HOTEL':
+            deleteFunction = propertiesAPI.hotels.deleteMyProperty;
+            break;
+          default:
+            throw new Error('Invalid property type');
+        }
+
+        console.log('Calling deleteFunction with ID:', apiId);
+        await deleteFunction(apiId); // Use the correct ID
+
+        Alert.alert('Success', 'Listing deleted successfully');
+        fetchMyListings(); // Refresh
       } catch (error) {
         console.error('Delete error:', error);
         Alert.alert('Error', 'Failed to delete listing');
