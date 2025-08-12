@@ -11,6 +11,7 @@ import { ArrowLeft, Home, Search, Heart, MessageCircle, User } from 'react-nativ
 import { Link, useNavigation } from 'expo-router';
 import { useRouter } from 'expo-router';
 import BottomNavigation from '../BottomNavigation';
+import { MapFloatingButton } from '../ui/MapFloatingButton';
 
 const NewListingScreen = () => {
   const navigation = useNavigation(); // Use the useNavigate hook for navigation
@@ -25,57 +26,66 @@ const NewListingScreen = () => {
   }
 
   return (
-    <SafeAreaView style={styles.container}>
-      <View style={styles.header}>
-        {/* <TouchableOpacity onPress={handleGoBack}> 
-          <Ionicons name="arrow-back" size={24} color="black" />
-        </TouchableOpacity> */}
-        {/* <Text style={styles.headerTitle}>New listing</Text> */}
-      </View>
+    <View style={styles.mainContainer}>
+      <SafeAreaView style={styles.container}>
+        <View style={styles.header}>
+          {/* <TouchableOpacity onPress={handleGoBack}> 
+            <Ionicons name="arrow-back" size={24} color="black" />
+          </TouchableOpacity> */}
+          {/* <Text style={styles.headerTitle}>New listing</Text> */}
+        </View>
 
-      <View style={styles.optionsContainer}>
-        {/* Use navigate to go to the PropertyForm screen */}
+        <View style={styles.optionsContainer}>
+          {/* Use navigate to go to the PropertyForm screen */}
 
-        <Link href="/Listings/listproperty" asChild>
-        <TouchableOpacity
-          style={styles.optionCard}
-        >
-          <Text style={styles.optionTitle}>Sell property</Text>
-          <View style={styles.iconContainer}>
-            <MaterialCommunityIcons name="key-outline" size={24} color="#22c55e" />
-          </View>
-        </TouchableOpacity>
-        </Link>
-        
-        <Link href="/Listings/listlongterm" asChild>
-        <TouchableOpacity
-          style={styles.optionCard}
-        >
-          <Text style={styles.optionTitle}>Long-term renting</Text>
-          <View style={styles.iconContainer}>
-            <MaterialCommunityIcons name="timer-sand" size={24} color="#22c55e" />
-          </View>
-        </TouchableOpacity>
-        </Link>
+          <Link href="/Listings/listproperty" asChild>
+          <TouchableOpacity
+            style={styles.optionCard}
+          >
+            <Text style={styles.optionTitle}>Sell property</Text>
+            <View style={styles.iconContainer}>
+              <MaterialCommunityIcons name="key-outline" size={24} color="#22c55e" />
+            </View>
+          </TouchableOpacity>
+          </Link>
+          
+          <Link href="/Listings/listlongterm" asChild>
+          <TouchableOpacity
+            style={styles.optionCard}
+          >
+            <Text style={styles.optionTitle}>Long-term renting</Text>
+            <View style={styles.iconContainer}>
+              <MaterialCommunityIcons name="timer-sand" size={24} color="#22c55e" />
+            </View>
+          </TouchableOpacity>
+          </Link>
 
-        <Link href="/Listings/listshortterm" asChild>
-        <TouchableOpacity
-          style={styles.optionCard}
-        >
-          <Text style={styles.optionTitle}>Short-term renting</Text>
-          <View style={styles.iconContainer}>
-            <MaterialCommunityIcons name="clock-outline" size={24} color="#22c55e" />
-          </View>
-        </TouchableOpacity>
-        </Link>
-      </View>
+          <Link href="/Listings/listshortterm" asChild>
+          <TouchableOpacity
+            style={styles.optionCard}
+          >
+            <Text style={styles.optionTitle}>Short-term renting</Text>
+            <View style={styles.iconContainer}>
+              <MaterialCommunityIcons name="clock-outline" size={24} color="#22c55e" />
+            </View>
+          </TouchableOpacity>
+          </Link>
+        </View>
 
-      {/* <BottomNavigation/> */}
-    </SafeAreaView>
+        {/* <BottomNavigation/> */}
+      </SafeAreaView>
+      
+      {/* Map Floating Button - Outside SafeAreaView for better positioning */}
+      <MapFloatingButton />
+    </View>
   );
 };
 
 const styles = StyleSheet.create({
+  mainContainer: {
+    flex: 1,
+    backgroundColor: '#fff',
+  },
   container: {
     flex: 1,
     backgroundColor: '#fff',

@@ -20,6 +20,7 @@ import {
 // @ts-ignore: wishlistAPI may not be exported in all setups
 import { wishlistAPI } from "@/services/wishlistAPI"
 import AsyncStorage from "@react-native-async-storage/async-storage"
+import BottomNavigation from "@/components/BottomNavigation"
 
 const { width } = Dimensions.get("window")
 
@@ -297,9 +298,6 @@ ${purpose === 'RENT' ? 'Available for rent' : 'For sale'}`,
               color={isWishlisted ? "#ff4444" : "#fff"}
             />
           </TouchableOpacity>
-          <TouchableOpacity style={styles.topButton} onPress={shareProperty}>
-            <Ionicons name="chatbubble-outline" size={24} color="#fff" />
-          </TouchableOpacity>
         </View>
       </View>
     )
@@ -375,185 +373,175 @@ ${purpose === 'RENT' ? 'Available for rent' : 'For sale'}`,
   }
 
   return (
-    <SafeAreaView style={styles.container}>
-      <ScrollView style={styles.scrollView} showsVerticalScrollIndicator={false}>
-        {renderImageCarousel()}
+    <View style={styles.mainContainer}>
+      <SafeAreaView style={styles.container}>
+        <ScrollView style={styles.scrollView} showsVerticalScrollIndicator={false}>
+          {renderImageCarousel()}
 
-        <View style={styles.contentContainer}>
-          {/* Online Tour Button */}
-          <TouchableOpacity style={styles.onlineTourButton}>
-            <Ionicons name="videocam-outline" size={16} color="#666" />
-            <Text style={styles.onlineTourText}>Online tour</Text>
-          </TouchableOpacity>
+          <View style={styles.contentContainer}>
+            {/* Online Tour Button */}
+            <TouchableOpacity style={styles.onlineTourButton}>
+              <Ionicons name="videocam-outline" size={16} color="#666" />
+              <Text style={styles.onlineTourText}>Online tour</Text>
+            </TouchableOpacity>
 
-          {/* Property Title and Price */}
-         {/* Property Title and Price */}
-      <View style={styles.headerSection}>
-        <View style={styles.priceAndUnitContainer}>
-          <Text style={styles.propertyPrice}>{getPriceInfo().price}</Text>
-          {getPriceInfo().unit ? (
-            <Text style={styles.priceUnit}>{getPriceInfo().unit}</Text>
-          ) : null}
-        </View>
-        <View style={styles.ratingContainer}>
-          <Ionicons name="star" size={16} color="#FFD700" />
-          <Text style={styles.ratingText}>4.84 (19)</Text>
-        </View>
-      </View>
-
-          {/* Property Details */}
-          <Text style={styles.propertyDetails}>
-            {property.bedroom_count} bedroom{property.bedroom_count !== 1 ? 's' : ''}, {property.room_count || property.bedroom_count} room{property.room_count !== 1 ? 's' : ''}
-          </Text>
-
-
-         <Text style={styles.locationText}>{property.address}</Text>
-
-          {/* Map Section */}
-          <View style={styles.mapContainer}>
-            <Image source={{ uri: "/placeholder.svg?height=200&width=350" }} style={styles.mapImage} />
+            {/* Property Title and Price */}
+           {/* Property Title and Price */}
+        <View style={styles.headerSection}>
+          <View style={styles.priceAndUnitContainer}>
+            <Text style={styles.propertyPrice}>{getPriceInfo().price}</Text>
+            {getPriceInfo().unit ? (
+              <Text style={styles.priceUnit}>{getPriceInfo().unit}</Text>
+            ) : null}
           </View>
+          <View style={styles.ratingContainer}>
+            <Ionicons name="star" size={16} color="#FFD700" />
+            <Text style={styles.ratingText}>4.84 (19)</Text>
+          </View>
+        </View>
 
-          {/* Property Features */}
-          <View style={styles.section}>
-            <Text style={styles.sectionTitle}>Property</Text>
-            <View style={styles.amenitiesGrid}>
-              {mockAmenities.map((amenity, index) => (
-                <View key={index} style={styles.amenityRow}>
-                  <Ionicons name={amenity.icon as any} size={20} color="#333" />
-                  <Text style={styles.amenityText}>{amenity.text}</Text>
+            {/* Property Details */}
+            <Text style={styles.propertyDetails}>
+              {property.bedroom_count} bedroom{property.bedroom_count !== 1 ? 's' : ''}, {property.room_count || property.bedroom_count} room{property.room_count !== 1 ? 's' : ''}
+            </Text>
+
+
+           <Text style={styles.locationText}>{property.address}</Text>
+
+            {/* Map Section */}
+            <View style={styles.mapContainer}>
+              <Image source={{ uri: "/placeholder.svg?height=200&width=350" }} style={styles.mapImage} />
+            </View>
+
+            {/* Property Features */}
+            <View style={styles.section}>
+              <Text style={styles.sectionTitle}>Property</Text>
+              <View style={styles.amenitiesGrid}>
+                {mockAmenities.map((amenity, index) => (
+                  <View key={index} style={styles.amenityRow}>
+                    <Ionicons name={amenity.icon as any} size={20} color="#333" />
+                    <Text style={styles.amenityText}>{amenity.text}</Text>
+                  </View>
+                ))}
+              </View>
+            </View>
+
+            {/* About This Space */}
+            <View style={styles.section}>
+              <Text style={styles.sectionTitle}>About this space</Text>
+              <Text style={styles.descriptionText}>
+                {property.description || 'No description provided.'}
+              </Text>
+              <TouchableOpacity onPress={() => setShowMoreDescription(!showMoreDescription)}>
+                <Text style={styles.showMoreText}>Show more</Text>
+              </TouchableOpacity>
+            </View>
+
+            {/* Detailed Amenities */}
+            <View style={styles.section}>
+              <Text style={styles.sectionTitle}>Amenities</Text>
+              {mockDetailedAmenities.map((category, index) => (
+                <View key={index} style={styles.amenityCategoryContainer}>
+                  <View style={styles.amenityCategoryHeader}>
+                    <Ionicons name="checkmark-circle-outline" size={20} color="#333" />
+                    <Text style={styles.amenityCategoryTitle}>{category.category}</Text>
+                  </View>
+                  <Text style={styles.amenityCategoryItems}>{category.items}</Text>
                 </View>
               ))}
-            </View>
-          </View>
 
-          {/* About This Space */}
-          <View style={styles.section}>
-            <Text style={styles.sectionTitle}>About this space</Text>
-            <Text style={styles.descriptionText}>
-              {property.description || 'No description provided.'}
-            </Text>
-            <TouchableOpacity onPress={() => setShowMoreDescription(!showMoreDescription)}>
-              <Text style={styles.showMoreText}>Show more</Text>
-            </TouchableOpacity>
-          </View>
-
-          {/* Detailed Amenities */}
-          <View style={styles.section}>
-            <Text style={styles.sectionTitle}>Amenities</Text>
-            {mockDetailedAmenities.map((category, index) => (
-              <View key={index} style={styles.amenityCategoryContainer}>
+              <View style={styles.amenityCategoryContainer}>
                 <View style={styles.amenityCategoryHeader}>
-                  <Ionicons name="checkmark-circle-outline" size={20} color="#333" />
-                  <Text style={styles.amenityCategoryTitle}>{category.category}</Text>
+                  <Ionicons name="shield-checkmark-outline" size={20} color="#333" />
+                  <Text style={styles.amenityCategoryTitle}>Security</Text>
                 </View>
-                <Text style={styles.amenityCategoryItems}>{category.items}</Text>
+                <Text style={styles.amenityCategoryItems}>Yes</Text>
               </View>
-            ))}
-
-            <View style={styles.amenityCategoryContainer}>
-              <View style={styles.amenityCategoryHeader}>
-                <Ionicons name="shield-checkmark-outline" size={20} color="#333" />
-                <Text style={styles.amenityCategoryTitle}>Security</Text>
-              </View>
-              <Text style={styles.amenityCategoryItems}>Yes</Text>
             </View>
-          </View>
 
-          {/* Reviews Section */}
-          <View style={styles.section}>
-            <Text style={styles.sectionTitle}>Reviews our guest</Text>
-            <View style={styles.reviewsContainer}>
-              {mockReviews.map((review) => (
-                <View key={review.id} style={styles.reviewItem}>
-                  <View style={styles.reviewHeader}>
-                    <View style={styles.reviewerAvatar}>
-                      <Text style={styles.reviewerAvatarText}>{review.avatar}</Text>
-                    </View>
-                    <View style={styles.reviewerInfo}>
-                      <Text style={styles.reviewerName}>{review.name}</Text>
-                      <View style={styles.reviewRating}>
-                        {[...Array(5)].map((_, i) => (
-                          <Ionicons key={i} name="star" size={12} color={i < review.rating ? "#FFD700" : "#E0E0E0"} />
-                        ))}
-                        <Text style={styles.reviewTime}>{review.timeAgo}</Text>
+            {/* Reviews Section */}
+            <View style={styles.section}>
+              <Text style={styles.sectionTitle}>Reviews our guest</Text>
+              <View style={styles.reviewsContainer}>
+                {mockReviews.map((review) => (
+                  <View key={review.id} style={styles.reviewItem}>
+                    <View style={styles.reviewHeader}>
+                      <View style={styles.reviewerAvatar}>
+                        <Text style={styles.reviewerAvatarText}>{review.avatar}</Text>
+                      </View>
+                      <View style={styles.reviewerInfo}>
+                        <Text style={styles.reviewerName}>{review.name}</Text>
+                        <View style={styles.reviewRating}>
+                          {[...Array(5)].map((_, i) => (
+                            <Ionicons key={i} name="star" size={12} color={i < review.rating ? "#FFD700" : "#E0E0E0"} />
+                          ))}
+                          <Text style={styles.reviewTime}>{review.timeAgo}</Text>
+                        </View>
                       </View>
                     </View>
+                    <Text style={styles.reviewComment}>{review.comment}</Text>
                   </View>
-                  <Text style={styles.reviewComment}>{review.comment}</Text>
+                ))}
+              </View>
+              <TouchableOpacity style={styles.showAllReviewsButton}>
+                <Text style={styles.showAllReviewsText}>Show all reviews</Text>
+              </TouchableOpacity>
+            </View>
+
+            {/* Listed By Section */}
+            <View style={styles.section}>
+              <Text style={styles.sectionTitle}>Listed by</Text>
+              <View style={styles.agentContainer}>
+                <View style={styles.agentAvatar}>
+                  <Text style={styles.agentAvatarText}>L</Text>
                 </View>
-              ))}
-            </View>
-            <TouchableOpacity style={styles.showAllReviewsButton}>
-              <Text style={styles.showAllReviewsText}>Show all reviews</Text>
-            </TouchableOpacity>
-          </View>
-
-          {/* Listed By Section */}
-          <View style={styles.section}>
-            <Text style={styles.sectionTitle}>Listed by</Text>
-            <View style={styles.agentContainer}>
-              <View style={styles.agentAvatar}>
-                <Text style={styles.agentAvatarText}>L</Text>
-              </View>
-              <View style={styles.agentInfo}>
-                <Text style={styles.agentRole}>Agent</Text>
-                <Text style={styles.agentId}>Agent ID</Text>
-                <Text style={styles.agentName}>Marta</Text>
+                <View style={styles.agentInfo}>
+                  <Text style={styles.agentRole}>Agent</Text>
+                  <Text style={styles.agentId}>Agent ID</Text>
+                  <Text style={styles.agentName}>Marta</Text>
+                </View>
               </View>
             </View>
+
+            {/* Published Date */}
+            <Text style={styles.publishedDate}>Published on: 09.01.2025</Text>
+
+            {/* Bottom spacing for floating buttons */}
+            <View style={styles.bottomSpacing} />
           </View>
+        </ScrollView>
 
-          {/* Published Date */}
-          <Text style={styles.publishedDate}>Published on: 09.01.2025</Text>
-
-          {/* Bottom spacing for floating buttons */}
-          <View style={styles.bottomSpacing} />
+        {/* Floating Action Buttons */}
+        <View style={styles.floatingButtons}>
+          <TouchableOpacity style={styles.reserveButton} onPress={handleBooking}>
+            <Text style={styles.buttonText}>Reserve</Text>
+          </TouchableOpacity>
+          <TouchableOpacity style={styles.messageButton} onPress={() => handleMessagePress(property)}>
+            <Text style={styles.buttonText}>Message</Text>
+          </TouchableOpacity>
         </View>
-      </ScrollView>
-
-      {/* Floating Action Buttons */}
-      <View style={styles.floatingButtons}>
-        <TouchableOpacity style={styles.reserveButton} onPress={handleBooking}>
-          <Text style={styles.buttonText}>Reserve</Text>
-        </TouchableOpacity>
-        <TouchableOpacity style={styles.messageButton} onPress={() => handleMessagePress(property)}>
-          <Text style={styles.buttonText}>Message</Text>
-        </TouchableOpacity>
+      </SafeAreaView>
+      <View style={styles.bottomNavContainer}>
+        <BottomNavigation />
       </View>
-
-      {/* Bottom Navigation */}
-      <View style={styles.bottomNavigation}>
-        <TouchableOpacity style={styles.navItem}>
-          <Ionicons name="home-outline" size={24} color="#666" />
-          <Text style={styles.navText}>Home</Text>
-        </TouchableOpacity>
-        <TouchableOpacity style={styles.navItem}>
-          <Ionicons name="search-outline" size={24} color="#666" />
-          <Text style={styles.navText}>Explore</Text>
-        </TouchableOpacity>
-        <TouchableOpacity style={styles.navItem}>
-          <Ionicons name="heart-outline" size={24} color="#666" />
-          <Text style={styles.navText}>Wishlists</Text>
-        </TouchableOpacity>
-        <TouchableOpacity style={styles.navItem}>
-          <Ionicons name="chatbubble-outline" size={24} color="#4CAF50" />
-          <Text style={[styles.navText, { color: "#4CAF50" }]}>Messages</Text>
-        </TouchableOpacity>
-        <TouchableOpacity style={styles.navItem}>
-          <Ionicons name="person-outline" size={24} color="#666" />
-          <Text style={styles.navText}>Log in</Text>
-        </TouchableOpacity>
-      </View>
-    </SafeAreaView>
+    </View>
   )
 }
 
 const styles = StyleSheet.create({
-  // ... (all styles from your provided code)
+  mainContainer: {
+    flex: 1,
+    backgroundColor: "#fff",
+  },
   container: {
     flex: 1,
     backgroundColor: "#fff",
+  },
+  bottomNavContainer: {
+    position: 'absolute',
+    bottom: 0,
+    left: 0,
+    right: 0,
   },
   scrollView: {
     flex: 1,
@@ -690,10 +678,19 @@ const styles = StyleSheet.create({
     alignItems: "center",
     marginBottom: 8,
   },
+  priceAndUnitContainer: {
+    flexDirection: "row",
+    alignItems: "baseline",
+  },
   propertyPrice: {
     fontSize: 24,
     fontWeight: "bold",
     color: "#333",
+  },
+  priceUnit: {
+    fontSize: 16,
+    color: "#666",
+    marginLeft: 4,
   },
   ratingContainer: {
     flexDirection: "row",
@@ -906,23 +903,6 @@ const styles = StyleSheet.create({
     color: "#fff",
     fontSize: 16,
     fontWeight: "600",
-  },
-  bottomNavigation: {
-    flexDirection: "row",
-    backgroundColor: "#fff",
-    borderTopWidth: 1,
-    borderTopColor: "#E0E0E0",
-    paddingVertical: 8,
-  },
-  navItem: {
-    flex: 1,
-    alignItems: "center",
-    paddingVertical: 8,
-  },
-  navText: {
-    fontSize: 12,
-    color: "#666",
-    marginTop: 4,
   },
 })
 

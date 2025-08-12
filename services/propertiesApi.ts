@@ -607,7 +607,8 @@
 
 
 
-import { default as AsyncStorage, default as axios } from "axios";
+import AsyncStorage from "@react-native-async-storage/async-storage";
+import axios from "axios";
 
 import { API_CONFIG } from '../config/apiConfig';
 

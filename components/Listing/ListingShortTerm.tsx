@@ -224,14 +224,13 @@ const RentShortTermScreen = () => {
       newErrors.price = "Price must be a positive number"
     }
 
-    if (!bathrooms) {
+    // Only validate bathrooms for house/apartment types, not for hotels
+    if ((isHouseType() || isApartmentType() || isCommercialType()) && !bathrooms) {
       newErrors.bathrooms = "Number of bathrooms is required"
     }
 
-    if (isHouseType() || isApartmentType()) {
-      if (!rooms) {
-        newErrors.rooms = "Number of rooms is required"
-      }
+    if ((isHouseType() || isApartmentType()) && !rooms) {
+      newErrors.rooms = "Number of rooms is required"
     }
 
     if (isHotelType()) {
@@ -355,6 +354,8 @@ const RentShortTermScreen = () => {
             | "VILLA"
             | "BUNGALOW",
           room_count: 1,
+          bedroom_count: 1, // Default for hotels
+          bathroom_count: 1, // Default for hotels
           bed_type: (bedType?.toUpperCase().replace(" ", "_") || "SINGLE") as
             | "SINGLE"
             | "DOUBLE"

@@ -133,8 +133,8 @@ export const usePropertyFilters = (listingType: 'short-term' | 'long-term' | 'ho
           propertiesAPI.hotels.list() // Adjust based on your actual amenities endpoint
         ]);
         
-        setPropertyTypes(types);
-        setAmenities(amenitiesData);
+        setPropertyTypes(types?.data || types);
+        setAmenities(amenitiesData?.data || amenitiesData);
         
         // Set other options based on your backend structure
         setRoomTypes([

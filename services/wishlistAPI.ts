@@ -42,10 +42,20 @@ export const wishlistService = {
   getWishlist: async (): Promise<WishlistItem[]> => {
     try {
       const response = await wishlistAPI.get('/');
-      return response.data; // assuming the backend returns a list
+      const data = response.data;
+      
+      // Handle different API response structures
+      if (data && data.data && Array.isArray(data.data)) {
+        return data.data; // Handle {success: true, data: []}
+      } else if (Array.isArray(data)) {
+        return data; // Handle direct array response
+      } else {
+        console.warn('Unexpected wishlist API response format:', data);
+        return []; // Return empty array for unexpected formats
+      }
     } catch (error) {
       console.error('Error fetching whishlist:', error);
-      throw error;
+      return []; // Return empty array on error instead of throwing
     }
   },
 

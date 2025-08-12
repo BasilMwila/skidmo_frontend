@@ -75,7 +75,7 @@ const SearchResultsScreen = () => {
         const data = await propertiesAPI.filterProperties({
           purchase_type: searchTerm === "long-term" ? "rent" : "sale",
         })
-        searchResults = data.properties || []
+        searchResults = data.data?.properties || []
       }
 
       // Format the results

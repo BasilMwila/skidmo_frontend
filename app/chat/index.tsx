@@ -343,7 +343,7 @@ export default function ChatScreen() {
     return (
       <SafeAreaView style={styles.container}>
         <View style={styles.loadingContainer}>
-          <ActivityIndicator size="large" color="#4CAF50" />
+          <ActivityIndicator size="large" color="#00a651" />
           <Text style={styles.loadingText}>Loading conversation...</Text>
         </View>
       </SafeAreaView>
@@ -434,7 +434,11 @@ export default function ChatScreen() {
           onPress={sendMessage}
           disabled={!newMessage.trim() || sending}
         >
-          {sending ? <ActivityIndicator size="small" color="#666" /> : <Ionicons name="send" size={20} color="#666" />}
+          {sending ? (
+            <ActivityIndicator size="small" color="#fff" />
+          ) : (
+            <Ionicons name="send" size={20} color="#fff" />
+          )}
         </TouchableOpacity>
       </View>
     </SafeAreaView>
@@ -538,7 +542,7 @@ const styles = StyleSheet.create({
     borderRadius: 20,
   },
   ownBubble: {
-    backgroundColor: "#4CAF50",
+    backgroundColor: "#00a651",
   },
   otherBubble: {
     backgroundColor: "#F0F0F0",
@@ -587,7 +591,12 @@ const styles = StyleSheet.create({
     color: "#000",
   },
   sendButton: {
-    padding: 8,
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: "#00a651",
+    justifyContent: "center",
+    alignItems: "center",
     marginLeft: 8,
   },
   sendButtonDisabled: {

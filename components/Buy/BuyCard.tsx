@@ -598,12 +598,12 @@ const BuyScreen = () => {
     const fetchSaleProperties = async () => {
       try {
         const data = await propertiesAPI.filterProperties({ purchase_type: "sale" })
-        if (!Array.isArray(data.properties)) {
+        if (!Array.isArray(data.data?.properties)) {
           console.error("Unexpected response format:", data)
           setError("Invalid data format from API")
           return
         }
-        const saleData = data.properties.map((property: any) => ({
+        const saleData = data.data.properties.map((property: any) => ({
           id: property.id?.toString() || "",
           title: property.title,
           price: `K${Number.parseFloat(property.sale_price || property.price).toLocaleString(undefined, {

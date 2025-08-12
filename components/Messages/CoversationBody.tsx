@@ -20,8 +20,9 @@ import { Ionicons } from "@expo/vector-icons"
 import AsyncStorage from "@react-native-async-storage/async-storage"
 import { messagingAPI, type MessageThread } from "@/services/messaging"
 import { ownerAPI, type User } from "@/services/userApi"
+import BottomNavigation from "../BottomNavigation"
 
-const APP_GREEN = "#00A551"
+const APP_GREEN = "#00a651"
 
 interface ConversationItemProps {
   thread: MessageThread
@@ -159,8 +160,11 @@ export default function ConversationBody() {
     try {
       setLoading(true)
       const userThreads = await messagingAPI.getThreads()
-      setThreads(userThreads)
+      // Ensure we always have an array, even if API returns undefined/null
+      setThreads(Array.isArray(userThreads) ? userThreads : [])
     } catch (error) {
+      console.error("Error fetching threads:", error)
+      setThreads([]) // Set empty array on error
       Alert.alert("Error", "Failed to load conversations")
     } finally {
       setLoading(false)
@@ -227,52 +231,70 @@ export default function ConversationBody() {
 
   if (loading) {
     return (
-      <SafeAreaView style={styles.container}>
-        <ActivityIndicator size="large" color={APP_GREEN} />
-      </SafeAreaView>
+      <View style={styles.mainContainer}>
+        <SafeAreaView style={styles.container}>
+          <View style={styles.loadingContainer}>
+            <ActivityIndicator size="large" color={APP_GREEN} />
+          </View>
+        </SafeAreaView>
+        <View style={styles.bottomNavContainer}>
+          <BottomNavigation />
+        </View>
+      </View>
     )
   }
 
   return (
-    <SafeAreaView style={styles.container}>
-      {/* Header */}
-      <View style={styles.header}>
-        <Text style={styles.headerTitle}>Messages</Text>
-        <TouchableOpacity style={styles.iconButton}>
-          <Ionicons name="search" size={24} color="#000" />
-        </TouchableOpacity>
+    <View style={styles.mainContainer}>
+      <SafeAreaView style={styles.container}>
+        {/* Header */}
+        <View style={styles.header}>
+          <Text style={styles.headerTitle}>Messages</Text>
+          <TouchableOpacity style={styles.iconButton}>
+            <Ionicons name="search" size={24} color="#000" />
+          </TouchableOpacity>
+        </View>
+
+        {/* List of Chats */}
+        <FlatList
+          data={threads}
+          renderItem={({ item }) => (
+            <ConversationItem thread={item} currentUserId={currentUserId || 0} onPress={() => openConversation(item)} />
+          )}
+          keyExtractor={(item) => item.id.toString()}
+          showsVerticalScrollIndicator={false}
+          contentContainerStyle={styles.listContent}
+          refreshControl={<RefreshControl refreshing={refreshing} onRefresh={handleRefresh} tintColor={APP_GREEN} />}
+          ListEmptyComponent={
+            <View style={styles.emptyState}>
+              <Ionicons name="chatbubbles-outline" size={80} color="#ddd" />
+              <Text style={styles.emptyText}>Start chatting</Text>
+              <Text style={styles.emptySubtext}>Tap the message icon below to start a conversation.</Text>
+            </View>
+          }
+        />
+      </SafeAreaView>
+      <View style={styles.bottomNavContainer}>
+        <BottomNavigation />
       </View>
-
-      {/* List of Chats */}
-      <FlatList
-        data={threads}
-        renderItem={({ item }) => (
-          <ConversationItem thread={item} currentUserId={currentUserId || 0} onPress={() => openConversation(item)} />
-        )}
-        keyExtractor={(item) => item.id.toString()}
-        showsVerticalScrollIndicator={false}
-        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={handleRefresh} tintColor={APP_GREEN} />}
-        ListEmptyComponent={
-          <View style={styles.emptyState}>
-            <Ionicons name="chatbubbles-outline" size={80} color="#ccc" />
-            <Text style={styles.emptyText}>Start chatting</Text>
-            <Text style={styles.emptySubtext}>Search or tap the + icon to start a conversation.</Text>
-          </View>
-        }
-      />
-
-      {/* Floating Action Button (FAB) */}
-      <TouchableOpacity style={styles.fab} onPress={startNewChat}>
-        <Ionicons name="chatbubble-ellipses-outline" size={28} color="#fff" />
-      </TouchableOpacity>
-    </SafeAreaView>
+    </View>
   )
 }
 
 const styles = StyleSheet.create({
+  mainContainer: {
+    flex: 1,
+    backgroundColor: "#fff",
+  },
   container: {
     flex: 1,
-    backgroundColor: "#D1D6D0",
+    backgroundColor: "#fff",
+  },
+  bottomNavContainer: {
+    position: 'absolute',
+    bottom: 0,
+    left: 0,
+    right: 0,
   },
   header: {
     flexDirection: "row",
@@ -280,12 +302,14 @@ const styles = StyleSheet.create({
     alignItems: "center",
     padding: 16,
     paddingTop: Platform.OS === "android" ? 30 : 20,
-    backgroundColor: "#D1D6D0",
+    backgroundColor: "#fff",
+    borderBottomWidth: 1,
+    borderBottomColor: "#f0f0f0",
   },
   headerTitle: {
-    fontSize: 20,
+    fontSize: 24,
     fontWeight: "bold",
-    color: "#fff",
+    color: "#000",
     alignItems: "center",
     justifyContent: "center",
     flex: 1,
@@ -293,14 +317,26 @@ const styles = StyleSheet.create({
   },
   iconButton: {
     padding: 8,
+    borderRadius: 20,
+    backgroundColor: "#f8f8f8",
   },
   conversationItem: {
     flexDirection: "row",
     backgroundColor: "#fff",
-    padding: 12,
+    padding: 16,
     borderBottomWidth: 1,
-    borderBottomColor: "#ccc",
-    marginBottom: 1,
+    borderBottomColor: "#f0f0f0",
+    marginHorizontal: 16,
+    marginVertical: 4,
+    borderRadius: 12,
+    shadowColor: "#000",
+    shadowOffset: {
+      width: 0,
+      height: 1,
+    },
+    shadowOpacity: 0.05,
+    shadowRadius: 2,
+    elevation: 1,
   },
   avatar: {
     width: 50,
@@ -370,28 +406,12 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontWeight: "bold",
   },
-  fab: {
-    position: "absolute",
-    right: 20,
-    bottom: 20,
-    width: 56,
-    height: 56,
-    borderRadius: 28,
-    backgroundColor: APP_GREEN,
-    justifyContent: "center",
-    alignItems: "center",
-    elevation: 6,
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.2,
-    shadowRadius: 3,
-  },
   emptyState: {
     flex: 1,
     justifyContent: "center",
     alignItems: "center",
     padding: 40,
-    backgroundColor: "#e5ddd5",
+    backgroundColor: "#fff",
   },
   emptyText: {
     fontSize: 18,
@@ -404,5 +424,9 @@ const styles = StyleSheet.create({
     textAlign: "center",
     color: "#888",
     marginTop: 8,
+  },
+  listContent: {
+    paddingTop: 8,
+    paddingBottom: 100,
   },
 })

@@ -28,12 +28,9 @@ export default function TabLayout() {
           headerShown: false,
           tabBarButton: HapticTab,
           tabBarBackground: TabBarBackground,
-          tabBarStyle: Platform.select({
-            ios: {
-              position: "absolute",
-            },
-            default: {},
-          }),
+          tabBarStyle: {
+            display: 'none', // Hide the default tab bar since we're using custom BottomNavigation
+          },
         }}
       >
         <Tabs.Screen

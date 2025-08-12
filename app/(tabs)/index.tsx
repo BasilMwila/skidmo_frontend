@@ -12,6 +12,7 @@ import { useRouter } from "expo-router"
 import { useEffect, useState } from "react"
 import { ActivityIndicator, FlatList, SafeAreaView, ScrollView, StyleSheet, Text, View } from "react-native"
 import { TouchableOpacity } from "react-native-gesture-handler"
+import BottomNavigation from "@/components/BottomNavigation"
 
 interface Property {
   id: number | string
@@ -52,9 +53,20 @@ export default function Home() {
           propertiesAPI.hotels.list(),
         ])
 
-        const allProperties = [...commercial, ...apartments, ...houses, ...hotels]
+        // Extract data arrays from API responses
+        const commercialData = Array.isArray(commercial?.data) ? commercial.data : [];
+        const apartmentData = Array.isArray(apartments?.data) ? apartments.data : [];
+        const houseData = Array.isArray(houses?.data) ? houses.data : [];
+        const hotelData = Array.isArray(hotels?.data) ? hotels.data : [];
+
+        const allProperties = [
+          ...commercialData,
+          ...apartmentData,
+          ...houseData,
+          ...hotelData
+        ]
         const transformedProperties = allProperties.map((property: any, index: number) => {
-          const isShortTerm = property.property_type === "LODGE_HOTEL"
+          const isShortTerm = property.term_category === "SHORT" || property.property_type === "LODGE_HOTEL"
 
           // Use the correct price field based on property purpose
           let displayPrice = 0
@@ -70,7 +82,9 @@ export default function Home() {
           return {
             id: property.id,
             image: {
-              uri: property.photos?.[0]?.image || PLACEHOLDER_IMAGES[index % PLACEHOLDER_IMAGES.length],
+              uri: property.photos?.[0]?.image 
+                ? `http://192.168.0.184:8000${property.photos[0].image}`
+                : PLACEHOLDER_IMAGES[index % PLACEHOLDER_IMAGES.length],
             },
             price: displayPrice,
             rental_price: property.rental_price,
@@ -90,26 +104,7 @@ export default function Home() {
       } catch (err) {
         console.error("Failed to fetch properties:", err)
         setError("Failed to load properties. Please try again later.")
-
-        const placeholderProperties = Array.from({ length: 4 }, (_, index) => {
-          const isHotel = index % 4 === 3
-          return {
-            id: index,
-            image: { uri: PLACEHOLDER_IMAGES[index % PLACEHOLDER_IMAGES.length] },
-            price: Math.floor(Math.random() * 900) + 100,
-            rental_price: Math.floor(Math.random() * 900) + 100,
-            sale_price: Math.floor(Math.random() * 90000) + 10000,
-            star_rating: Math.floor(Math.random() * 3) + 2,
-            bedrooms: Math.floor(Math.random() * 4) + 1,
-            bathrooms: Math.floor(Math.random() * 3) + 1,
-            address: ["New York", "Los Angeles", "Chicago", "Miami"][index % 4],
-            property_type: ["APARTMENT", "HOUSE", "COMMERCIAL", "LODGE_HOTEL"][index % 4] as any,
-            purpose: ["RENT", "BUY", "RENT_BUY", "RENT"][index % 4] as any,
-            title: `Property ${index + 1}`,
-            is_short_term: isHotel,
-          }
-        })
-        setProperties(placeholderProperties)
+        setProperties([])
       } finally {
         setLoading(false)
       }
@@ -201,45 +196,60 @@ export default function Home() {
   }
 
   return (
-    <SafeAreaView style={styles.container}>
-      {/* Header with Search and Notification */}
-      <View style={styles.header}>
-        <View style={styles.searchContainer}>
-          <SearchBar />
+    <View style={styles.mainContainer}>
+      <SafeAreaView style={styles.container}>
+        {/* Header with Search and Notification */}
+        <View style={styles.header}>
+          <View style={styles.searchContainer}>
+            <SearchBar />
+          </View>
+        
         </View>
-      
+
+        <ScrollView style={styles.scrollContent}>
+          <ActionButtons />
+
+          <View style={styles.listingsContainer}>
+            <Text style={styles.listingsTitle}>Recent listings</Text>
+            {properties.length > 0 ? (
+              <FlatList
+                data={properties}
+                renderItem={renderItem}
+                keyExtractor={(item, index) => `property-${item.id}-${index}`}
+                numColumns={2}
+                columnWrapperStyle={styles.row}
+                scrollEnabled={false}
+              />
+            ) : (
+              <Text style={styles.noPropertiesText}>No properties available</Text>
+            )}
+          </View>
+        </ScrollView>
+
+        {/* Map Floating Button */}
+        <MapFloatingButton />
+      </SafeAreaView>
+      <View style={styles.bottomNavContainer}>
+        <BottomNavigation />
       </View>
-
-      <ScrollView style={styles.scrollContent}>
-        <ActionButtons />
-
-        <View style={styles.listingsContainer}>
-          <Text style={styles.listingsTitle}>Recent listings</Text>
-          {properties.length > 0 ? (
-            <FlatList
-              data={properties}
-              renderItem={renderItem}
-              keyExtractor={(item, index) => `property-${item.id}-${index}`}
-              numColumns={2}
-              columnWrapperStyle={styles.row}
-              scrollEnabled={false}MapFloatingButton
-            />
-          ) : (
-            <Text style={styles.noPropertiesText}>No properties available</Text>
-          )}
-        </View>
-      </ScrollView>
-
-      {/* Map Floating Button */}
-      <MapFloatingButton />
-    </SafeAreaView>
+    </View>
   )
 }
 
 const styles = StyleSheet.create({
+  mainContainer: {
+    flex: 1,
+    backgroundColor: "#fff",
+  },
   container: {
     flex: 1,
     backgroundColor: "#fff",
+  },
+  bottomNavContainer: {
+    position: 'absolute',
+    bottom: 0,
+    left: 0,
+    right: 0,
   },
   header: {
     flexDirection: "row",

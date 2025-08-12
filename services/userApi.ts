@@ -174,18 +174,44 @@ export const ownerAPI = {
     
     getUserInfo: async (userId?: string) => {
         // If userId is provided, get specific user, otherwise get current user
-        const endpoint = userId ? `users/${userId}/retrieve/` : 'users/me/'; // Adjust based on your API
+        if (userId) {
+            // Get specific user by ID (POST request as per backend)
+            const endpoint = `users/${userId}/retrieve`;
+            try {
+                const response = await api.post(endpoint);
+                return response.data?.data || response.data;
+            } catch (error) {
+                console.error('Error fetching user info:', error);
+                throw error;
+            }
+        } else {
+            // Get current user profile (GET request)
+            try {
+                const response = await api.get('auth/profile');
+                return response.data?.data || response.data;
+            } catch (error) {
+                console.error('Error fetching current user profile:', error);
+                throw error;
+            }
+        }
+    },
+
+    // Add new method for getting current user specifically
+    getCurrentUser: async () => {
         try {
-            const response = await api.post(endpoint); // Use POST request as per backend configuration
-            return response.data;
+            const response = await api.get('auth/profile');
+            return response.data?.data || response.data;
         } catch (error) {
-            console.error('Error fetching user info:', error);
+            console.error('Error fetching current user profile:', error);
             throw error;
         }
     },
 
     updateUserInfo: async (userData: Partial<UserData>, userId?: string) => {
-        const endpoint = userId ? `users/${userId}/update/` : 'users/me/';
+        // Use auth/profile endpoint for updating current user profile
+        const endpoint = userId ? `users/${userId}/update` : 'auth/profile';
+        const method = userId ? 'patch' : 'put'; // auth/profile uses PUT method
+        
         try {
             console.log('Updating user with data:', userData); // Log the payload
             const token = await AsyncStorage.getItem('access_token');
@@ -193,7 +219,10 @@ export const ownerAPI = {
                 throw new Error('No access token found');
             }
     
-            const response = await api.patch(endpoint, userData, {
+            const response = await api({
+                method: method,
+                url: endpoint,
+                data: userData,
                 headers: {
                     'Content-Type': 'application/json',
                     'Authorization': `Bearer ${token}`,
@@ -201,7 +230,7 @@ export const ownerAPI = {
             });
     
             console.log('Update successful:', response.data); // Log the response
-            return response.data;
+            return response.data?.data || response.data;
         } catch (error) {
             console.error('Error updating user info:', error);
             if (error.response) {

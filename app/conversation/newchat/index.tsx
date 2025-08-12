@@ -19,7 +19,7 @@ import { ownerAPI, type User } from "@/services/userApi"
 import { messagingAPI } from "@/services/messaging"
 import { fetchCurrentUser } from "@/types/userHelpers"
 
-const APP_GREEN = "#00A551"
+const APP_GREEN = "#00a651"
 
 // Type guard for searchUsers
 function hasSearchUsers(api: any): api is typeof ownerAPI & { searchUsers: (query: string) => Promise<User[]> } {

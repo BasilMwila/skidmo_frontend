@@ -307,7 +307,7 @@ const SellListingScreen = () => {
         {
           text: "OK",
           onPress: () => {
-            // Reset form or navigate back
+            // Reset form
             setSelectedType("House")
             setAddress("")
             setPrice("")
@@ -317,7 +317,8 @@ const SellListingScreen = () => {
             setCertificatePhoto("")
             setSelectedInfrastructure([])
             setFormSubmitted(false)
-            // Reset other fields as needed
+            // Navigate to home page
+            router.replace("/(tabs)")
           },
         },
       ])

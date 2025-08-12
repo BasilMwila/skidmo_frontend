@@ -21,6 +21,7 @@ import { useRouter } from "expo-router"
 import FilterScreen from "@/components/Explore/Filters"
 import AsyncStorage from "@react-native-async-storage/async-storage"
 import { messagingAPI } from "@/services/messaging"
+import { MapFloatingButton } from "@/components/ui/MapFloatingButton"
 
 interface Property {
   id: string | number
@@ -336,36 +337,45 @@ export default function MapListingScreen() {
   )
 
   return (
-    <SafeAreaView style={styles.container}>
-      {renderHeader()}
+    <View style={styles.mainContainer}>
+      <SafeAreaView style={styles.container}>
+        {renderHeader()}
 
-      <FlatList
-        data={displayProperties}
-        keyExtractor={createUniqueKey}
-        renderItem={renderPropertyItem}
-        ListEmptyComponent={renderEmptyState}
-        contentContainerStyle={styles.listContent}
-        showsVerticalScrollIndicator={false}
-        ItemSeparatorComponent={() => <View style={styles.separator} />}
-      />
-
-      <Modal
-        visible={filterModalVisible}
-        animationType="slide"
-        presentationStyle="pageSheet"
-        onRequestClose={handleFilterClose}
-      >
-        <FilterScreen
-          properties={originalProperties.length > 0 ? originalProperties : fallbackProperties}
-          onApply={handleFilterApply}
-          onClose={handleFilterClose}
+        <FlatList
+          data={displayProperties}
+          keyExtractor={createUniqueKey}
+          renderItem={renderPropertyItem}
+          ListEmptyComponent={renderEmptyState}
+          contentContainerStyle={styles.listContent}
+          showsVerticalScrollIndicator={false}
+          ItemSeparatorComponent={() => <View style={styles.separator} />}
         />
-      </Modal>
-    </SafeAreaView>
+
+        <Modal
+          visible={filterModalVisible}
+          animationType="slide"
+          presentationStyle="pageSheet"
+          onRequestClose={handleFilterClose}
+        >
+          <FilterScreen
+            properties={originalProperties.length > 0 ? originalProperties : fallbackProperties}
+            onApply={handleFilterApply}
+            onClose={handleFilterClose}
+          />
+        </Modal>
+      </SafeAreaView>
+      
+      {/* Map Floating Button */}
+      <MapFloatingButton />
+    </View>
   )
 }
 
 const styles = StyleSheet.create({
+  mainContainer: {
+    flex: 1,
+    backgroundColor: "#f8f9fa",
+  },
   container: {
     flex: 1,
     backgroundColor: "#f8f9fa",

@@ -53,17 +53,16 @@ const ProfileScreen = () => {
   useEffect(() => {
     const fetchUserData = async () => {
       try {
-        const userId = await AsyncStorage.getItem('user_id')
         const verifiedStatus = await AsyncStorage.getItem('is_verified')
 
         if (verifiedStatus) {
           setIsVerified(verifiedStatus === 'true')
         }
 
-        if (userId) {
-          const userData = await ownerAPI.getUserInfo(userId)
-          setUser(userData)
-        }
+        // Use getCurrentUser instead of getUserInfo to get current user profile
+        const userData = await ownerAPI.getCurrentUser()
+        console.log('Fetched user data:', userData) // Debug log
+        setUser(userData)
       } catch (error) {
         console.error('Error fetching user profile:', error)
         Alert.alert("Error", "Failed to fetch user data")

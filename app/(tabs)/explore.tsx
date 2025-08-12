@@ -3,24 +3,28 @@ import { Feather } from "@expo/vector-icons"
 import { useRouter } from "expo-router"
 import { StatusBar } from "expo-status-bar"
 import { useEffect, useState } from "react"
-import MapView, { Marker, type Region } from "react-native-maps"
+import { WebView } from 'react-native-webview'
 import { SafeAreaView } from "react-native-safe-area-context"
-import { Dimensions, StyleSheet, Text, TouchableOpacity, Alert } from "react-native"
+import { Dimensions, StyleSheet, Text, TouchableOpacity, Alert, View } from "react-native"
 import * as Location from "expo-location"
 import { propertiesAPI } from "@/services/propertiesApi"
+import BottomNavigation from "@/components/BottomNavigation"
+import { ListingsFloatingButton } from "@/components/ui/ListingsFloatingButton"
+import { FilterFloatingButton } from "@/components/ui/FilterFloatingButton"
 
 const { width, height } = Dimensions.get("window")
+const YANDEX_API_KEY = '0c66a079-5ace-445a-abe5-cefa336104e3'
 
 export default function ExploreScreen() {
   const router = useRouter()
   const [allProperties, setAllProperties] = useState<any[]>([])
   const [visibleProperties, setVisibleProperties] = useState<any[]>([])
-  const [region, setRegion] = useState<Region>({
-    latitude: -15.4167,
-    longitude: 28.2833,
-    latitudeDelta: 0.0922,
-    longitudeDelta: 0.0421,
+  const [center, setCenter] = useState({
+    lat: -15.4167,
+    lon: 28.2833,
   })
+  const [zoom, setZoom] = useState(10)
+  const [filteredProperties, setFilteredProperties] = useState<any[]>([])
 
   useEffect(() => {
     // Fetch all property types
@@ -32,7 +36,13 @@ export default function ExploreScreen() {
           propertiesAPI.house.list(),
           propertiesAPI.hotels.list(),
         ])
-        const all = [...commercial, ...apartments, ...houses, ...hotels]
+        // Extract data arrays from API responses
+        const commercialData = Array.isArray(commercial?.data) ? commercial.data : [];
+        const apartmentData = Array.isArray(apartments?.data) ? apartments.data : [];
+        const houseData = Array.isArray(houses?.data) ? houses.data : [];
+        const hotelData = Array.isArray(hotels?.data) ? hotels.data : [];
+
+        const all = [...commercialData, ...apartmentData, ...houseData, ...hotelData]
         setAllProperties(all)
       } catch (err) {
         setAllProperties([])
@@ -43,17 +53,102 @@ export default function ExploreScreen() {
 
   // Filter properties within the current map region
   useEffect(() => {
-    const inRegion = allProperties.filter((property) => {
+    // Use filtered properties if available, otherwise use all properties
+    const propertiesSource = filteredProperties.length > 0 ? filteredProperties : allProperties
+    
+    const inRegion = propertiesSource.filter((property) => {
       if (!property.latitude || !property.longitude) return false
-      return (
-        property.latitude > region.latitude - region.latitudeDelta / 2 &&
-        property.latitude < region.latitude + region.latitudeDelta / 2 &&
-        property.longitude > region.longitude - region.longitudeDelta / 2 &&
-        property.longitude < region.longitude + region.longitudeDelta / 2
-      )
+      // Simple distance-based filtering for Yandex Maps
+      const latDiff = Math.abs(property.latitude - center.lat)
+      const lonDiff = Math.abs(property.longitude - center.lon)
+      const threshold = zoom > 12 ? 0.01 : zoom > 8 ? 0.05 : 0.1
+      return latDiff <= threshold && lonDiff <= threshold
     })
     setVisibleProperties(inRegion)
-  }, [region, allProperties])
+  }, [center, allProperties, zoom, filteredProperties])
+
+  // Handle filters applied from FilterFloatingButton
+  const handleFiltersApplied = (properties: any[]) => {
+    setFilteredProperties(properties)
+    console.log(`Applied filters: ${properties.length} properties found`)
+  }
+
+  // Generate Yandex Maps HTML
+  const generateYandexMapHTML = () => {
+    return `
+      <!DOCTYPE html>
+      <html>
+        <head>
+          <meta charset="utf-8">
+          <meta name="viewport" content="width=device-width, initial-scale=1.0">
+          <title>Yandex Map</title>
+          <script src="https://api-maps.yandex.ru/2.1/?apikey=${YANDEX_API_KEY}&lang=en_US" type="text/javascript"></script>
+          <style>
+            html, body, #map { 
+              width: 100%; 
+              height: 100%; 
+              margin: 0; 
+              padding: 0; 
+              font-family: Arial, sans-serif;
+            }
+            .loading {
+              display: flex;
+              justify-content: center;
+              align-items: center;
+              height: 100vh;
+              font-size: 18px;
+            }
+          </style>
+        </head>
+        <body>
+          <div id="loading" class="loading">Loading map...</div>
+          <div id="map" style="display: none;"></div>
+          <script>
+            try {
+              ymaps.ready(function() {
+                document.getElementById('loading').style.display = 'none';
+                document.getElementById('map').style.display = 'block';
+                
+                var map = new ymaps.Map('map', {
+                  center: [${center.lat}, ${center.lon}],
+                  zoom: ${zoom},
+                  controls: ['zoomControl', 'fullscreenControl']
+                });
+
+                // Add a sample marker at center
+                var placemark = new ymaps.Placemark([${center.lat}, ${center.lon}], {
+                  balloonContent: 'Map Center',
+                  hintContent: 'Map Center'
+                }, {
+                  preset: 'islands#greenDotIcon'
+                });
+                map.geoObjects.add(placemark);
+
+                // Listen for map center changes
+                map.events.add('boundschange', function(e) {
+                  try {
+                    var center = map.getCenter();
+                    var zoom = map.getZoom();
+                    if (window.ReactNativeWebView) {
+                      window.ReactNativeWebView.postMessage(JSON.stringify({
+                        type: 'centerChange',
+                        center: center,
+                        zoom: zoom
+                      }));
+                    }
+                  } catch (err) {
+                    console.error('Error sending message:', err);
+                  }
+                });
+              });
+            } catch (error) {
+              document.getElementById('loading').innerHTML = 'Error loading map: ' + error.message;
+            }
+          </script>
+        </body>
+      </html>
+    `;
+  }
 
   const getUserLocationAndFilterProperties = async () => {
     try {
@@ -107,33 +202,18 @@ export default function ExploreScreen() {
     }
   }
 
-  // Helper function to detect if a string is a Plus Code
-  const isPlusCode = (str: string): boolean => {
-    // Plus codes typically have format like "J935+V42" or "8FRJ+23 City"
-    const plusCodePattern = /^[23456789CFGHJMPQRVWX]{4}\+[23456789CFGHJMPQRVWX]{2,3}$/
-    return plusCodePattern.test(str) || str.includes("+")
+  // Simplified helper functions
+  const extractAreaName = (locationInfo: any): string => {
+    return locationInfo.city || locationInfo.district || locationInfo.region || "Unknown Area"
   }
 
-  // Helper function to extract meaningful area name
-  const extractAreaName = (locationInfo: any): string => {
-    // Priority order for area detection, filtering out Plus Codes
-    const candidates = [
-      locationInfo.name,
-      locationInfo.district,
-      locationInfo.subregion,
-      locationInfo.street,
-      locationInfo.city,
-    ].filter(Boolean)
-
-    // Find the first candidate that's not a Plus Code
-    for (const candidate of candidates) {
-      if (!isPlusCode(candidate)) {
-        return candidate
-      }
-    }
-
-    // If all candidates are Plus Codes or empty, fall back to city/region
-    return locationInfo.city || locationInfo.region || locationInfo.district || "Unknown Area"
+  // Check if a string is a Google Plus Code
+  const isPlusCode = (term: string): boolean => {
+    if (!term || typeof term !== 'string') return false
+    // Plus codes typically contain '+' and are alphanumeric
+    // Format: 8 characters + 2-4 characters (e.g., "6FH7+XX" or "6FH7+XXXX")
+    const plusCodeRegex = /^[23456789CFGHJMPQRVWX]{4,8}\+[23456789CFGHJMPQRVWX]{2,4}$/i
+    return plusCodeRegex.test(term) || term.includes('+')
   }
 
   const filterPropertiesByLocation = async (locationName: string, latitude: number, longitude: number) => {
@@ -185,9 +265,9 @@ export default function ExploreScreen() {
             address: primaryArea,
           })
 
-          if (primaryResults && primaryResults.properties && primaryResults.properties.length > 0) {
-            console.log(`Found ${primaryResults.properties.length} properties in primary area: ${primaryArea}`)
-            allFilteredProperties = [...primaryResults.properties]
+          if (primaryResults && primaryResults.data?.properties && primaryResults.data.properties.length > 0) {
+            console.log(`Found ${primaryResults.data.properties.length} properties in primary area: ${primaryArea}`)
+            allFilteredProperties = [...primaryResults.data.properties]
           }
         } catch (primaryError) {
           console.log(`Primary area search failed for "${primaryArea}":`, primaryError)
@@ -206,8 +286,8 @@ export default function ExploreScreen() {
               location: term,
             })
 
-            if (results && results.properties && results.properties.length > 0) {
-              allFilteredProperties = [...allFilteredProperties, ...results.properties]
+            if (results && results.data?.properties && results.data.properties.length > 0) {
+              allFilteredProperties = [...allFilteredProperties, ...results.data.properties]
             }
           } catch (termError) {
             console.log(`Combined filter failed for term "${term}":`, termError)
@@ -252,8 +332,8 @@ export default function ExploreScreen() {
             address: primaryArea,
           })
 
-          if (primaryResults && primaryResults.length > 0) {
-            fallbackProperties = [...primaryResults]
+          if (primaryResults && primaryResults.data?.properties && primaryResults.data.properties.length > 0) {
+            fallbackProperties = [...primaryResults.data.properties]
           }
         } catch (primaryError) {
           console.log(`Primary area fallback search failed for "${primaryArea}":`, primaryError)
@@ -271,8 +351,8 @@ export default function ExploreScreen() {
               district: term,
             })
 
-            if (results && results.length > 0) {
-              fallbackProperties = [...fallbackProperties, ...results]
+            if (results && results.data?.properties && results.data.properties.length > 0) {
+              fallbackProperties = [...fallbackProperties, ...results.data.properties]
             }
           } catch (termError) {
             console.log(`Individual filter failed for term "${term}":`, termError)
@@ -383,59 +463,71 @@ export default function ExploreScreen() {
     await getUserLocationAndFilterProperties()
   }
 
-  const renderListingsButton = () => (
-    <TouchableOpacity style={styles.listingsButton} onPress={handleListingsPress}>
-      <Feather name="list" size={18} color="black" />
-      <Text style={styles.listingsButtonText}>Listings</Text>
-    </TouchableOpacity>
-  )
+
+  // Handle messages from WebView
+  const handleWebViewMessage = (event: any) => {
+    try {
+      const data = JSON.parse(event.nativeEvent.data);
+      if (data.type === 'centerChange') {
+        setCenter({ lat: data.center[0], lon: data.center[1] });
+        setZoom(data.zoom);
+      }
+    } catch (error) {
+      console.error('Error parsing WebView message:', error);
+    }
+  };
 
   return (
-    <SafeAreaView style={styles.container} edges={["top"]}>
-      <StatusBar style="dark" />
-      <MapView style={styles.map} initialRegion={region} onRegionChangeComplete={setRegion}>
-        {allProperties.map((property, idx) =>
-          property.latitude && property.longitude ? (
-            <Marker
-              key={property.id}
-              coordinate={{ latitude: property.latitude, longitude: property.longitude }}
-              pinColor="#1a8917"
-            />
-          ) : null,
-        )}
-      </MapView>
-      {renderListingsButton()}
-    </SafeAreaView>
+    <View style={styles.mainContainer}>
+      <SafeAreaView style={styles.container} edges={["top"]}>
+        <StatusBar style="dark" />
+        <WebView
+          style={styles.map}
+          source={{ html: generateYandexMapHTML() }}
+          onMessage={handleWebViewMessage}
+          javaScriptEnabled={true}
+          domStorageEnabled={true}
+          startInLoadingState={true}
+          mixedContentMode="compatibility"
+          onError={(syntheticEvent) => {
+            const { nativeEvent } = syntheticEvent;
+            console.error('WebView error:', nativeEvent);
+          }}
+          onHttpError={(syntheticEvent) => {
+            const { nativeEvent } = syntheticEvent;
+            console.error('WebView HTTP error:', nativeEvent);
+          }}
+          onLoadEnd={() => {
+            console.log('WebView loaded successfully');
+          }}
+        />
+        <ListingsFloatingButton onPress={handleListingsPress} />
+        <FilterFloatingButton onFiltersApplied={handleFiltersApplied} />
+      </SafeAreaView>
+      <View style={styles.bottomNavContainer}>
+        <BottomNavigation />
+      </View>
+    </View>
   )
 }
 
 const styles = StyleSheet.create({
+  mainContainer: {
+    flex: 1,
+    backgroundColor: "#fff",
+  },
   container: {
     flex: 1,
     backgroundColor: "#fff",
   },
+  bottomNavContainer: {
+    position: 'absolute',
+    bottom: 0,
+    left: 0,
+    right: 0,
+  },
   map: {
     width: "100%",
     height: "100%",
-  },
-  listingsButton: {
-    position: "absolute",
-    bottom: 20,
-    left: 20,
-    backgroundColor: "white",
-    flexDirection: "row",
-    alignItems: "center",
-    paddingVertical: 8,
-    paddingHorizontal: 16,
-    borderRadius: 20,
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.2,
-    shadowRadius: 4,
-    elevation: 3,
-  },
-  listingsButtonText: {
-    marginLeft: 8,
-    fontWeight: "500",
   },
 })

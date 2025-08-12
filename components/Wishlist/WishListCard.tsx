@@ -521,7 +521,7 @@ const WishListCard = () => {
       if (purchaseType === "sale") {
         // For sale properties, use the filter method like in buy screen
         const data = await propertiesAPI.filterProperties({ purchase_type: "sale" })
-        propertyData = data.properties?.find((p: any) => p.id?.toString() === propertyId)
+        propertyData = data.data?.properties?.find((p: any) => p.id?.toString() === propertyId)
       } else {
         // For rental properties, try different property types
         try {
@@ -550,6 +550,13 @@ const WishListCard = () => {
       setLoading(true)
       const wishlistItems = await wishlistService.getWishlist()
       console.log("Raw wishlistItems from API:", wishlistItems)
+
+      // Ensure wishlistItems is an array
+      if (!Array.isArray(wishlistItems)) {
+        console.warn("API returned non-array wishlist data:", wishlistItems)
+        setProperties([])
+        return
+      }
 
       // Fetch full property details for each wishlist item
       const propertiesWithDetails = await Promise.all(
@@ -807,8 +814,7 @@ const WishListCard = () => {
           </View>
         }
       />
-
-    <MapFloatingButton />
+      <MapFloatingButton />
     </SafeAreaView>
   )
 }

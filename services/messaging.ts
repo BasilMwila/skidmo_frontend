@@ -177,6 +177,12 @@ export const messagingAPI = {
       const response = await api.get("threads/")
       const threads = response.data.results || response.data
 
+      // Ensure threads is an array
+      if (!Array.isArray(threads)) {
+        console.warn("API returned non-array threads data:", threads)
+        return []
+      }
+
       // Transform threads to include message info with better error handling
       const threadsWithMessages = await Promise.allSettled(
         threads.map(async (thread: Thread) => {
@@ -211,7 +217,7 @@ export const messagingAPI = {
         .map((result) => result.value)
     } catch (error) {
       console.error("Error fetching threads:", error)
-      throw error
+      return [] // Return empty array instead of throwing
     }
   },
 

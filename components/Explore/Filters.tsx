@@ -1369,7 +1369,7 @@ export default function FilterScreen({ onApply, onClose }) {
       })
       const response = await propertiesAPI.filterProperties(cleanedFilters)
       // Use the onApply prop to pass filtered properties back to the parent
-      onApply(response.properties)
+      onApply(response.data?.properties || [])
     } catch (error) {
       console.error("Failed to apply filters:", error)
       Alert.alert("Error", "Failed to apply filters. Please try again.")

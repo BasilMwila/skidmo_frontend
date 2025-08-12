@@ -1,9 +1,9 @@
 import React from 'react';
 import { View, Text, TouchableOpacity, StyleSheet, Platform } from 'react-native';
-import { Link, usePathname, RelativePathString } from 'expo-router';
+import { useRouter, usePathname, RelativePathString } from 'expo-router';
 import { AntDesign, Feather, EvilIcons } from '@expo/vector-icons';
-import { useColorScheme } from '@/hooks/useColorScheme';
-import { Colors } from '@/constants/Colors';
+
+const APP_GREEN = '#00a651';
 
 interface Tab {
   name: string;
@@ -12,8 +12,7 @@ interface Tab {
 }
 
 const BottomNavigation = () => {
-  const colorScheme = useColorScheme();
-  const tintColor = Colors[colorScheme ?? "light"].tint;
+  const router = useRouter();
   const pathname = usePathname();
 
   const tabs: Tab[] = [
@@ -44,25 +43,37 @@ const BottomNavigation = () => {
     },
   ];
 
+  const handleTabPress = (tab: Tab) => {
+    router.push(tab.href);
+  };
+
   return (
     <View style={[
       styles.tabBar,
       { backgroundColor: '#fff' } // Always white background
     ]}>
       {tabs.map((tab) => {
-        const isActive = pathname === tab.href;
+        const isActive = pathname === tab.href || 
+          (tab.href === '/messages' && pathname.startsWith('/conversation')) ||
+          (tab.href === '/messages' && pathname.startsWith('/chat'));
         return (
-        <Link href={tab.href} asChild key={tab.name}>
-          <TouchableOpacity style={styles.tabItem}>
-              {tab.icon(isActive ? tintColor : "#000")}
+          <TouchableOpacity 
+            key={tab.name} 
+            style={[
+              styles.tabItem,
+              isActive && styles.activeTabItem
+            ]}
+            onPress={() => handleTabPress(tab)}
+            activeOpacity={0.7}
+          >
+            {tab.icon(isActive ? APP_GREEN : "#666")}
             <Text style={[
               styles.tabLabel,
-                isActive && { color: tintColor, fontWeight: 'bold' }
+              isActive && { color: APP_GREEN, fontWeight: 'bold' }
             ]}>
               {tab.name}
             </Text>
           </TouchableOpacity>
-        </Link>
         );
       })}
     </View>
@@ -81,11 +92,17 @@ const styles = StyleSheet.create({
   },
   tabItem: {
     alignItems: 'center',
+    paddingVertical: 4,
+    paddingHorizontal: 8,
+    borderRadius: 8,
+  },
+  activeTabItem: {
+    backgroundColor: 'rgba(0, 166, 81, 0.1)', // Light green background for active state
   },
   tabLabel: {
     fontSize: 12,
     marginTop: 4,
-    color: '#000',
+    color: '#666',
   },
 });
 

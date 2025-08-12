@@ -20,11 +20,12 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import VerificationScreen from './VerificationScreen';
 
 interface UserData {
-  username: string;
+  id?: number;
+  name: string;
   email: string;
-  firstName?: string;
-  lastName?: string;
-  phoneNumber?: string;
+  phone_number: string;
+  first_name?: string;
+  last_name?: string;
   date_of_birth?: string;
   nrc_number?: string;
   address_line_1?: string;
@@ -41,6 +42,8 @@ interface UserData {
   bank_statement?: string;
   utility_bill?: string;
   selfie?: string;
+  status_verification?: string;
+  is_verified?: boolean;
 }
 
 interface DocumentUploaderProps {
@@ -157,19 +160,18 @@ const ProfileScreen = () => {
   useEffect(() => {
     const fetchUserData = async () => {
       try {
-        const userId = await AsyncStorage.getItem('user_id');
         const verifiedStatus = await AsyncStorage.getItem('is_verified');
         
-        if (userId) {
-          const userData = await ownerAPI.getUserInfo(userId);
-          setUser(userData);
-          setFormData(userData);
-          
-          if (verifiedStatus === 'true') {
-            setIsVerified(true);
-          } else {
-            setIsVerified(false);
-          }
+        // Use getCurrentUser instead of getUserInfo to get current user profile
+        const userData = await ownerAPI.getCurrentUser();
+        console.log('Fetched user data in edit screen:', userData);
+        setUser(userData);
+        setFormData(userData);
+        
+        if (verifiedStatus === 'true' || userData?.status_verification === 'verified') {
+          setIsVerified(true);
+        } else {
+          setIsVerified(false);
         }
       } catch (error) {
         console.error('Failed to fetch user data:', error);
@@ -192,14 +194,13 @@ const ProfileScreen = () => {
   const handleSave = async () => {
     try {
       setLoading(true);
-      const userId = await AsyncStorage.getItem('user_id');
-      if (userId) {
-        await ownerAPI.updateUserInfo(formData, userId)
-        const updatedData = await ownerAPI.getUserInfo(userId);
-        setUser(updatedData);
-        setEditing(false);
-        Alert.alert('Success', 'Profile updated successfully');
-      }
+      // Update the user profile using the auth profile endpoint
+      await ownerAPI.updateUserInfo(formData);
+      const updatedData = await ownerAPI.getCurrentUser();
+      setUser(updatedData);
+      setFormData(updatedData);
+      setEditing(false);
+      Alert.alert('Success', 'Profile updated successfully');
     } catch (error) {
       console.error('Failed to update user data:', error);
       Alert.alert('Error', 'Failed to update profile');
@@ -285,9 +286,11 @@ const ProfileScreen = () => {
     );
   };
 
-  if (!isVerified) {
-    return <VerificationScreen />;
-  }
+  // Helper function to check if field can be edited by unverified users
+  const canEditFieldForUnverified = (fieldName: string) => {
+    const allowedFields = ['name', 'phone_number', 'email'];
+    return allowedFields.includes(fieldName);
+  };
 
   if (loading && !user) {
     return (
@@ -305,7 +308,7 @@ const ProfileScreen = () => {
         <View style={styles.avatarContainer}>
           <View style={styles.avatar}>
             <Text style={styles.avatarText}>
-              {user?.firstName?.[0] || user?.username?.[0] || 'A'}
+              {user?.first_name?.[0] || user?.name?.[0] || 'A'}
             </Text>
           </View>
           {editing ? (
@@ -320,171 +323,203 @@ const ProfileScreen = () => {
         </View>
 
         {/* Notification banner */}
-        {isVerified && (
+        {isVerified ? (
           <View style={styles.notificationBanner}>
             <Text style={styles.notificationText}>Your account has been verified</Text>
+          </View>
+        ) : (
+          <View style={[styles.notificationBanner, {backgroundColor: '#fff3cd'}]}>
+            <Text style={[styles.notificationText, {color: '#856404'}]}>
+              Account not verified. Only basic information can be edited. Complete verification to access all fields.
+            </Text>
           </View>
         )}
 
         {/* Form fields */}
         <View style={styles.formContainer}>
-          <Text style={styles.label}>Username</Text>
+          <Text style={styles.label}>Name</Text>
           <TextInput 
-            style={styles.input}
-            value={user?.username || ''}
-            editable={false}
+            style={[styles.input, !editing && {backgroundColor: '#f5f5f5'}]}
+            value={formData?.name || ''}
+            onChangeText={(text) => handleInputChange('name', text)}
+            editable={editing && (isVerified || canEditFieldForUnverified('name'))}
           />
 
-          <Text style={styles.label}>First Name</Text>
+          <Text style={styles.label}>Phone Number</Text>
           <TextInput 
-            style={styles.input}
-            value={formData?.firstName || ''}
-            onChangeText={(text) => handleInputChange('firstName', text)}
-            editable={editing}
-          />
-
-          <Text style={styles.label}>Last Name</Text>
-          <TextInput 
-            style={styles.input}
-            value={formData?.lastName || ''}
-            onChangeText={(text) => handleInputChange('lastName', text)}
-            editable={editing}
-          />
-
-          <Text style={styles.label}>Date of birth</Text>
-          <TextInput 
-            style={styles.input}
-            value={formData?.date_of_birth || ''}
-            onChangeText={(text) => handleInputChange('date_of_birth', text)}
-            editable={editing}
-          />
-
-          <Text style={styles.label}>NRC number</Text>
-          <TextInput 
-            style={styles.input}
-            value={formData?.nrc_number || ''}
-            onChangeText={(text) => handleInputChange('nrc_number', text)}
-            editable={editing}
-          />
-
-          <Text style={styles.label}>Phone number</Text>
-          <TextInput 
-            style={styles.input}
-            value={formData?.phoneNumber || ''}
-            onChangeText={(text) => handleInputChange('phoneNumber', text)}
-            editable={editing}
+            style={[styles.input, !editing && {backgroundColor: '#f5f5f5'}]}
+            value={formData?.phone_number || ''}
+            onChangeText={(text) => handleInputChange('phone_number', text)}
+            editable={editing && (isVerified || canEditFieldForUnverified('phone_number'))}
           />
 
           <Text style={styles.label}>Email</Text>
           <TextInput 
-            style={styles.input}
+            style={[styles.input, !editing && {backgroundColor: '#f5f5f5'}]}
             value={formData?.email || ''}
             onChangeText={(text) => handleInputChange('email', text)}
-            editable={editing}
+            editable={editing && (isVerified || canEditFieldForUnverified('email'))}
           />
 
-          {/* Address Section */}
-          <Text style={styles.sectionHeader}>Address Information</Text>
-          <TextInput 
-            style={styles.input}
-            value={formData?.address_line_1 || ''}
-            onChangeText={(text) => handleInputChange('address_line_1', text)}
-            editable={editing}
-            placeholder="Address Line 1"
-          />
+          {/* Fields only editable by verified users */}
+          {isVerified && (
+            <>
+              <Text style={styles.label}>First Name</Text>
+              <TextInput 
+                style={[styles.input, !editing && {backgroundColor: '#f5f5f5'}]}
+                value={formData?.first_name || ''}
+                onChangeText={(text) => handleInputChange('first_name', text)}
+                editable={editing}
+              />
 
-          <TextInput 
-            style={styles.input}
-            value={formData?.address_line_2 || ''}
-            onChangeText={(text) => handleInputChange('address_line_2', text)}
-            editable={editing}
-            placeholder="Address Line 2"
-          />
+              <Text style={styles.label}>Last Name</Text>
+              <TextInput 
+                style={[styles.input, !editing && {backgroundColor: '#f5f5f5'}]}
+                value={formData?.last_name || ''}
+                onChangeText={(text) => handleInputChange('last_name', text)}
+                editable={editing}
+              />
 
-          <TextInput 
-            style={styles.input}
-            value={formData?.city || ''}
-            onChangeText={(text) => handleInputChange('city', text)}
-            editable={editing}
-            placeholder="City"
-          />
+              <Text style={styles.label}>Date of birth</Text>
+              <TextInput 
+                style={[styles.input, !editing && {backgroundColor: '#f5f5f5'}]}
+                value={formData?.date_of_birth || ''}
+                onChangeText={(text) => handleInputChange('date_of_birth', text)}
+                editable={editing}
+              />
 
-          <TextInput 
-            style={styles.input}
-            value={formData?.town || ''}
-            onChangeText={(text) => handleInputChange('town', text)}
-            editable={editing}
-            placeholder="Town"
-          />
+              <Text style={styles.label}>NRC number</Text>
+              <TextInput 
+                style={[styles.input, !editing && {backgroundColor: '#f5f5f5'}]}
+                value={formData?.nrc_number || ''}
+                onChangeText={(text) => handleInputChange('nrc_number', text)}
+                editable={editing}
+              />
+            </>
+          )}
 
-          <TextInput 
-            style={styles.input}
-            value={formData?.province || ''}
-            onChangeText={(text) => handleInputChange('province', text)}
-            editable={editing}
-            placeholder="Province"
-          />
+          {/* Address Section - Only for verified users */}
+          {isVerified && (
+            <>
+              <Text style={styles.sectionHeader}>Address Information</Text>
+              <TextInput 
+                style={[styles.input, !editing && {backgroundColor: '#f5f5f5'}]}
+                value={formData?.address_line_1 || ''}
+                onChangeText={(text) => handleInputChange('address_line_1', text)}
+                editable={editing}
+                placeholder="Address Line 1"
+              />
 
-          <TextInput 
-            style={styles.input}
-            value={formData?.postal_code || ''}
-            onChangeText={(text) => handleInputChange('postal_code', text)}
-            editable={editing}
-            placeholder="Postal Code"
-            keyboardType="numeric"
-          />
+              <TextInput 
+                style={[styles.input, !editing && {backgroundColor: '#f5f5f5'}]}
+                value={formData?.address_line_2 || ''}
+                onChangeText={(text) => handleInputChange('address_line_2', text)}
+                editable={editing}
+                placeholder="Address Line 2"
+              />
 
-          {/* Documents Section */}
-          <Text style={styles.sectionHeader}>Identity Documents</Text>
-          <DocumentUploader 
-            title="NRC Front" 
-            documentUrl={formData?.nrc_front} 
-            onUpload={(uri: string) => handleDocumentUpload('nrc_front', uri)} 
-          />
+              <TextInput 
+                style={[styles.input, !editing && {backgroundColor: '#f5f5f5'}]}
+                value={formData?.city || ''}
+                onChangeText={(text) => handleInputChange('city', text)}
+                editable={editing}
+                placeholder="City"
+              />
 
-          <DocumentUploader 
-            title="NRC Back" 
-            documentUrl={formData?.nrc_back} 
-            onUpload={(uri: string) => handleDocumentUpload('nrc_back', uri)} 
-          />
+              <TextInput 
+                style={[styles.input, !editing && {backgroundColor: '#f5f5f5'}]}
+                value={formData?.town || ''}
+                onChangeText={(text) => handleInputChange('town', text)}
+                editable={editing}
+                placeholder="Town"
+              />
 
-          <DocumentUploader 
-            title="Passport Photo" 
-            documentUrl={formData?.passport_photo} 
-            onUpload={(uri: string) => handleDocumentUpload('passport_photo', uri)}
-            isImage={true}
-          />
+              <TextInput 
+                style={[styles.input, !editing && {backgroundColor: '#f5f5f5'}]}
+                value={formData?.province || ''}
+                onChangeText={(text) => handleInputChange('province', text)}
+                editable={editing}
+                placeholder="Province"
+              />
 
-          <DocumentUploader 
-            title="Driver's License Front" 
-            documentUrl={formData?.drivers_license_front} 
-            onUpload={(uri: string) => handleDocumentUpload('drivers_license_front', uri)} 
-          />
+              <TextInput 
+                style={[styles.input, !editing && {backgroundColor: '#f5f5f5'}]}
+                value={formData?.postal_code || ''}
+                onChangeText={(text) => handleInputChange('postal_code', text)}
+                editable={editing}
+                placeholder="Postal Code"
+                keyboardType="numeric"
+              />
 
-          <DocumentUploader 
-            title="Driver's License Back" 
-            documentUrl={formData?.drivers_license_back} 
-            onUpload={(uri: string) => handleDocumentUpload('drivers_license_back', uri)} 
-          />
+              {/* Documents Section - Only for verified users */}
+              <Text style={styles.sectionHeader}>Identity Documents</Text>
+              <DocumentUploader 
+                title="NRC Front" 
+                documentUrl={formData?.nrc_front} 
+                onUpload={(uri: string) => handleDocumentUpload('nrc_front', uri)} 
+              />
 
-          <DocumentUploader
-            title="Bank Statement" 
-            documentUrl={formData?.bank_statement} 
-            onUpload={(uri: string) => handleDocumentUpload('bank_statement', uri)} 
-          />
+              <DocumentUploader 
+                title="NRC Back" 
+                documentUrl={formData?.nrc_back} 
+                onUpload={(uri: string) => handleDocumentUpload('nrc_back', uri)} 
+              />
 
-          <DocumentUploader 
-            title="Utility Bill" 
-            documentUrl={formData?.utility_bill} 
-            onUpload={(uri: string) => handleDocumentUpload('utility_bill', uri)} 
-          />
+              <DocumentUploader 
+                title="Passport Photo" 
+                documentUrl={formData?.passport_photo} 
+                onUpload={(uri: string) => handleDocumentUpload('passport_photo', uri)}
+                isImage={true}
+              />
 
-          <DocumentUploader 
-            title="Selfie" 
-            documentUrl={formData?.selfie} 
-            onUpload={(uri: string) => handleDocumentUpload('selfie', uri)}
-            isImage={true}
-          />
+              <DocumentUploader 
+                title="Driver's License Front" 
+                documentUrl={formData?.drivers_license_front} 
+                onUpload={(uri: string) => handleDocumentUpload('drivers_license_front', uri)} 
+              />
+
+              <DocumentUploader 
+                title="Driver's License Back" 
+                documentUrl={formData?.drivers_license_back} 
+                onUpload={(uri: string) => handleDocumentUpload('drivers_license_back', uri)} 
+              />
+
+              <DocumentUploader
+                title="Bank Statement" 
+                documentUrl={formData?.bank_statement} 
+                onUpload={(uri: string) => handleDocumentUpload('bank_statement', uri)} 
+              />
+
+              <DocumentUploader 
+                title="Utility Bill" 
+                documentUrl={formData?.utility_bill} 
+                onUpload={(uri: string) => handleDocumentUpload('utility_bill', uri)} 
+              />
+
+              <DocumentUploader 
+                title="Selfie" 
+                documentUrl={formData?.selfie} 
+                onUpload={(uri: string) => handleDocumentUpload('selfie', uri)}
+                isImage={true}
+              />
+            </>
+          )}
+
+          {/* Verification prompt for unverified users */}
+          {!isVerified && (
+            <View style={styles.verificationPrompt}>
+              <Text style={styles.verificationTitle}>Complete Verification</Text>
+              <Text style={styles.verificationText}>
+                To access all profile features and list properties, please complete your account verification.
+              </Text>
+              <TouchableOpacity 
+                style={styles.verificationButton} 
+                onPress={() => router.push('/authentication/verification')}
+              >
+                <Text style={styles.verificationButtonText}>Start Verification</Text>
+              </TouchableOpacity>
+            </View>
+          )}
 
           {/* Delete account and Logout buttons */}
           <TouchableOpacity style={styles.actionButton} onPress={handleDeleteAccount}>
@@ -675,6 +710,36 @@ const styles = StyleSheet.create({
   },
   documentPreviewText: {
     color: '#00a651',
+  },
+  verificationPrompt: {
+    backgroundColor: '#f8f9fa',
+    borderRadius: 8,
+    padding: 20,
+    marginVertical: 20,
+    alignItems: 'center',
+  },
+  verificationTitle: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    marginBottom: 10,
+    color: '#333',
+  },
+  verificationText: {
+    fontSize: 14,
+    color: '#666',
+    textAlign: 'center',
+    marginBottom: 15,
+    lineHeight: 20,
+  },
+  verificationButton: {
+    backgroundColor: '#00a651',
+    paddingHorizontal: 20,
+    paddingVertical: 10,
+    borderRadius: 5,
+  },
+  verificationButtonText: {
+    color: 'white',
+    fontWeight: 'bold',
   },
 });
 
