@@ -275,10 +275,6 @@ const RentLongTermScreen = () => {
         pet_friendly: pets === "Yes",
         allow_smoking: false,
         allow_kids: true,
-        photos: preparePhotosForAPI(photos),
-        videos: prepareVideosForAPI(video),
-        owner_proof: ownershipPhoto || null,
-        agent_certificate: certificatePhoto || null,
         is_agent: isAgent,
       }
 
@@ -313,7 +309,7 @@ const RentLongTermScreen = () => {
         console.log("- Bedroom count:", houseData.bedroom_count, typeof houseData.bedroom_count)
         console.log("- Bathroom count:", houseData.bathroom_count, typeof houseData.bathroom_count)
         console.log("- Full data:", JSON.stringify(houseData, null, 2))
-        response = await propertiesAPI.house.create(houseData)
+        response = await propertiesAPI.house.create(houseData, photos, video, ownershipPhoto, certificatePhoto)
       } else if (isApartmentType()) {
         const apartmentData = {
           ...baseData,
@@ -345,7 +341,7 @@ const RentLongTermScreen = () => {
           nearby_infrastructure: prepareInfrastructureForAPI(selectedInfrastructure),
         }
         console.log("Publishing APARTMENT property:", JSON.stringify(apartmentData, null, 2))
-        response = await propertiesAPI.apartment.create(apartmentData)
+        response = await propertiesAPI.apartment.create(apartmentData, photos, video, ownershipPhoto, certificatePhoto)
       } else if (isHotelType()) {
         const hotelData = {
           ...baseData,
@@ -437,8 +433,9 @@ const RentLongTermScreen = () => {
           wheelchair: accessibility.length > 0,
           elevators: false,
         }
+        
         console.log("Publishing LODGE_HOTEL property:", JSON.stringify(hotelData, null, 2))
-        response = await propertiesAPI.hotels.create(hotelData)
+        response = await propertiesAPI.hotels.create(hotelData, photos, video, ownershipPhoto, certificatePhoto)
       } else if (isCommercialType()) {
         const commercialData = {
           ...baseData,
@@ -455,7 +452,7 @@ const RentLongTermScreen = () => {
           nearby_infrastructure: prepareInfrastructureForAPI(selectedInfrastructure),
         }
         console.log("Publishing COMMERCIAL property:", JSON.stringify(commercialData, null, 2))
-        response = await propertiesAPI.commercial.create(commercialData)
+        response = await propertiesAPI.commercial.create(commercialData, photos, video, ownershipPhoto, certificatePhoto)
       }
 
       console.log("API response:", response)

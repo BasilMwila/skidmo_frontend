@@ -771,15 +771,20 @@ const createPropertyFormData = (
       }
     }
   })
-  photos.forEach((photoUri, index) => {
+  photos.forEach((photo, index) => {
+    // Handle both URI strings and photo objects
+    const photoUri = typeof photo === 'string' ? photo : photo.image
+    const caption = typeof photo === 'string' ? `Photo ${index + 1}` : photo.caption
+    const isPrimary = typeof photo === 'string' ? (index === 0) : photo.is_primary
+    
     const { filename, mimeType } = getFileInfo(photoUri)
     formData.append("photos", {
       uri: photoUri,
       type: mimeType,
       name: filename,
     } as any)
-    formData.append(`photo_${index}_caption`, `Photo ${index + 1}`)
-    formData.append(`photo_${index}_is_primary`, index === 0 ? "true" : "false")
+    formData.append(`photo_${index}_caption`, caption || `Photo ${index + 1}`)
+    formData.append(`photo_${index}_is_primary`, isPrimary ? "true" : "false")
   })
   if (video) {
     const { filename, mimeType } = getFileInfo(video)
@@ -816,14 +821,21 @@ const createPropertyFormData = (
   if (data.nearby_infrastructure && data.nearby_infrastructure.length > 0) {
     formData.append("nearby_infrastructure", JSON.stringify(data.nearby_infrastructure))
   }
+  console.log('=== FORMDATA CREATION DEBUG ===')
+  console.log('Photos received:', photos.length, photos)
+  console.log('Video received:', video)
+  
   if ((formData as any)._parts) {
-    ;(formData as any)._parts.forEach(([key, value]: [any, any]) => {
+    console.log('FormData _parts length:', (formData as any)._parts.length)
+    ;(formData as any)._parts.forEach(([key, value]: [any, any], index: number) => {
       if (typeof value === "object" && value.uri) {
-        console.log(`${key}:`, { uri: value.uri, type: value.type, name: value.name })
+        console.log(`[${index}] ${key}:`, { uri: value.uri, type: value.type, name: value.name })
       } else {
-        console.log(`${key}:`, value)
+        console.log(`[${index}] ${key}:`, value)
       }
     })
+  } else {
+    console.log('FormData _parts is undefined - this is the problem!')
   }
   return formData
 }
@@ -1174,10 +1186,16 @@ export const propertiesAPI = {
           return await propertiesAPI.house.get(id)
         case "commercial":
           return await propertiesAPI.commercial.get(id)
+        case "lodge_hotel":
+        case "hotel":
+        case "lodge":
+          return await propertiesAPI.hotels.get(id)
         default:
           throw new Error("Unknown property type")
       }
     } else {
+      // Try all endpoints - but this is inefficient and causes multiple API calls
+      // Better to pass the type when known
       try {
         return await propertiesAPI.apartment.get(id)
       } catch (e1) {
@@ -1187,7 +1205,11 @@ export const propertiesAPI = {
           try {
             return await propertiesAPI.commercial.get(id)
           } catch (e3) {
-            throw new Error("Property not found")
+            try {
+              return await propertiesAPI.hotels.get(id)
+            } catch (e4) {
+              throw new Error("Property not found")
+            }
           }
         }
       }

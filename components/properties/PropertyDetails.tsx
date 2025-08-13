@@ -303,49 +303,81 @@ ${purpose === 'RENT' ? 'Available for rent' : 'For sale'}`,
     )
   }
 
-  const mockReviews = [
-    {
-      id: 1,
-      name: "Annabel",
-      rating: 5,
-      timeAgo: "1 week ago",
-      comment: "I thoroughly enjoyed my stay, I felt at home and the pictures don't do it justice",
-      avatar: "A",
-    },
-    {
-      id: 2,
-      name: "Kangwa",
-      rating: 5,
-      timeAgo: "2 week ago",
-      comment: "I thoroughly enjoyed my stay, I felt at home and the pictures don't do it justice",
-      avatar: "D",
-    },
-  ]
+  // Get actual reviews from property data
+  const getPropertyReviews = () => {
+    if (property?.reviews && Array.isArray(property.reviews) && property.reviews.length > 0) {
+      return property.reviews;
+    }
+    return [];
+  };
 
-  const mockAmenities = [
-    { icon: "eye-outline", text: "Garden view" },
-    { icon: "business-outline", text: "Balcony" },
-    { icon: "home-outline", text: "Patio" },
-    { icon: "water-outline", text: "Private pool" },
-    { icon: "leaf-outline", text: "Private garden" },
-    { icon: "ban-outline", text: "No smoking" },
-    { icon: "ban-outline", text: "No pets" },
-  ]
+  // Get actual amenities from property data
+  const getPropertyAmenities = () => {
+    if (property?.amenities && Array.isArray(property.amenities) && property.amenities.length > 0) {
+      return property.amenities.map(amenity => ({
+        icon: getAmenityIcon(amenity.name || amenity.amenity_name || amenity),
+        text: amenity.name || amenity.amenity_name || amenity
+      }));
+    }
+    
+    // Fallback to basic amenities based on property features
+    const basicAmenities = [];
+    if (property?.has_parking) basicAmenities.push({ icon: "car-outline", text: "Parking" });
+    if (property?.has_wifi) basicAmenities.push({ icon: "wifi-outline", text: "WiFi" });
+    if (property?.has_pool) basicAmenities.push({ icon: "water-outline", text: "Swimming Pool" });
+    if (property?.has_gym) basicAmenities.push({ icon: "fitness-outline", text: "Gym" });
+    if (property?.has_security) basicAmenities.push({ icon: "shield-checkmark-outline", text: "Security" });
+    
+    return basicAmenities;
+  };
 
-  const mockDetailedAmenities = [
-    {
-      category: "Bathroom",
-      items: "Bath, hair dryer, shampoo, conditioner, shower gel, outdoor shower, hot water",
-    },
-    {
-      category: "Bedroom and laundry",
-      items: "Washing machine, free dryer, essentials, hangers, bed linens, extra pillows and blankets",
-    },
-    {
-      category: "Other amenities",
-      items: "Beach essentials, self check-in, parking space",
-    },
-  ]
+  // Helper function to get appropriate icon for amenity
+  const getAmenityIcon = (amenityName) => {
+    const name = (amenityName || '').toLowerCase();
+    if (name.includes('wifi') || name.includes('internet')) return 'wifi-outline';
+    if (name.includes('parking') || name.includes('garage')) return 'car-outline';
+    if (name.includes('pool') || name.includes('swimming')) return 'water-outline';
+    if (name.includes('gym') || name.includes('fitness')) return 'fitness-outline';
+    if (name.includes('security') || name.includes('guard')) return 'shield-checkmark-outline';
+    if (name.includes('garden') || name.includes('yard')) return 'leaf-outline';
+    if (name.includes('balcony') || name.includes('terrace')) return 'business-outline';
+    if (name.includes('kitchen')) return 'restaurant-outline';
+    if (name.includes('laundry') || name.includes('washing')) return 'shirt-outline';
+    if (name.includes('air') || name.includes('ac')) return 'snow-outline';
+    return 'checkmark-circle-outline';
+  };
+
+  // Get detailed amenities from property data
+  const getDetailedAmenities = () => {
+    const categories = [];
+    
+    if (property?.detailed_amenities && Array.isArray(property.detailed_amenities)) {
+      // Group amenities by category if they have categories
+      const grouped = property.detailed_amenities.reduce((acc, amenity) => {
+        const category = amenity.category || 'Other amenities';
+        if (!acc[category]) acc[category] = [];
+        acc[category].push(amenity.name || amenity.amenity_name || amenity);
+        return acc;
+      }, {});
+      
+      Object.entries(grouped).forEach(([category, items]) => {
+        categories.push({
+          category,
+          items: Array.isArray(items) ? items.join(', ') : items
+        });
+      });
+    }
+    
+    // If no detailed amenities, create basic categories from simple amenities
+    if (categories.length === 0 && getPropertyAmenities().length > 0) {
+      categories.push({
+        category: "Available amenities",
+        items: getPropertyAmenities().map(a => a.text).join(', ')
+      });
+    }
+    
+    return categories;
+  };
 
   if (loading) {
     return (
@@ -394,10 +426,14 @@ ${purpose === 'RENT' ? 'Available for rent' : 'For sale'}`,
               <Text style={styles.priceUnit}>{getPriceInfo().unit}</Text>
             ) : null}
           </View>
-          <View style={styles.ratingContainer}>
-            <Ionicons name="star" size={16} color="#FFD700" />
-            <Text style={styles.ratingText}>4.84 (19)</Text>
-          </View>
+          {property?.average_rating && (
+            <View style={styles.ratingContainer}>
+              <Ionicons name="star" size={16} color="#FFD700" />
+              <Text style={styles.ratingText}>
+                {parseFloat(property.average_rating).toFixed(1)} ({property.review_count || 0})
+              </Text>
+            </View>
+          )}
         </View>
 
             {/* Property Details */}
@@ -408,23 +444,41 @@ ${purpose === 'RENT' ? 'Available for rent' : 'For sale'}`,
 
            <Text style={styles.locationText}>{property.address}</Text>
 
-            {/* Map Section */}
-            <View style={styles.mapContainer}>
-              <Image source={{ uri: "/placeholder.svg?height=200&width=350" }} style={styles.mapImage} />
-            </View>
-
-            {/* Property Features */}
-            <View style={styles.section}>
-              <Text style={styles.sectionTitle}>Property</Text>
-              <View style={styles.amenitiesGrid}>
-                {mockAmenities.map((amenity, index) => (
-                  <View key={index} style={styles.amenityRow}>
-                    <Ionicons name={amenity.icon as any} size={20} color="#333" />
-                    <Text style={styles.amenityText}>{amenity.text}</Text>
-                  </View>
-                ))}
+            {/* Map Section - Show if coordinates are available */}
+            {(property?.latitude && property?.longitude) ? (
+              <View style={styles.mapContainer}>
+                <View style={styles.mapPlaceholder}>
+                  <Ionicons name="location-outline" size={32} color="#666" />
+                  <Text style={styles.mapPlaceholderText}>Map View</Text>
+                  <Text style={styles.mapCoordinates}>
+                    {parseFloat(property.latitude).toFixed(6)}, {parseFloat(property.longitude).toFixed(6)}
+                  </Text>
+                </View>
               </View>
-            </View>
+            ) : property?.address ? (
+              <View style={styles.mapContainer}>
+                <View style={styles.mapPlaceholder}>
+                  <Ionicons name="location-outline" size={32} color="#666" />
+                  <Text style={styles.mapPlaceholderText}>Location</Text>
+                  <Text style={styles.mapAddressText}>{property.address}</Text>
+                </View>
+              </View>
+            ) : null}
+
+            {/* Property Features - Only show if amenities exist */}
+            {getPropertyAmenities().length > 0 && (
+              <View style={styles.section}>
+                <Text style={styles.sectionTitle}>Property Features</Text>
+                <View style={styles.amenitiesGrid}>
+                  {getPropertyAmenities().map((amenity, index) => (
+                    <View key={index} style={styles.amenityRow}>
+                      <Ionicons name={amenity.icon as any} size={20} color="#333" />
+                      <Text style={styles.amenityText}>{amenity.text}</Text>
+                    </View>
+                  ))}
+                </View>
+              </View>
+            )}
 
             {/* About This Space */}
             <View style={styles.section}>
@@ -437,74 +491,118 @@ ${purpose === 'RENT' ? 'Available for rent' : 'For sale'}`,
               </TouchableOpacity>
             </View>
 
-            {/* Detailed Amenities */}
-            <View style={styles.section}>
-              <Text style={styles.sectionTitle}>Amenities</Text>
-              {mockDetailedAmenities.map((category, index) => (
-                <View key={index} style={styles.amenityCategoryContainer}>
-                  <View style={styles.amenityCategoryHeader}>
-                    <Ionicons name="checkmark-circle-outline" size={20} color="#333" />
-                    <Text style={styles.amenityCategoryTitle}>{category.category}</Text>
-                  </View>
-                  <Text style={styles.amenityCategoryItems}>{category.items}</Text>
-                </View>
-              ))}
-
-              <View style={styles.amenityCategoryContainer}>
-                <View style={styles.amenityCategoryHeader}>
-                  <Ionicons name="shield-checkmark-outline" size={20} color="#333" />
-                  <Text style={styles.amenityCategoryTitle}>Security</Text>
-                </View>
-                <Text style={styles.amenityCategoryItems}>Yes</Text>
-              </View>
-            </View>
-
-            {/* Reviews Section */}
-            <View style={styles.section}>
-              <Text style={styles.sectionTitle}>Reviews our guest</Text>
-              <View style={styles.reviewsContainer}>
-                {mockReviews.map((review) => (
-                  <View key={review.id} style={styles.reviewItem}>
-                    <View style={styles.reviewHeader}>
-                      <View style={styles.reviewerAvatar}>
-                        <Text style={styles.reviewerAvatarText}>{review.avatar}</Text>
-                      </View>
-                      <View style={styles.reviewerInfo}>
-                        <Text style={styles.reviewerName}>{review.name}</Text>
-                        <View style={styles.reviewRating}>
-                          {[...Array(5)].map((_, i) => (
-                            <Ionicons key={i} name="star" size={12} color={i < review.rating ? "#FFD700" : "#E0E0E0"} />
-                          ))}
-                          <Text style={styles.reviewTime}>{review.timeAgo}</Text>
-                        </View>
-                      </View>
+            {/* Detailed Amenities - Only show if detailed amenities exist */}
+            {getDetailedAmenities().length > 0 && (
+              <View style={styles.section}>
+                <Text style={styles.sectionTitle}>Detailed Amenities</Text>
+                {getDetailedAmenities().map((category, index) => (
+                  <View key={index} style={styles.amenityCategoryContainer}>
+                    <View style={styles.amenityCategoryHeader}>
+                      <Ionicons name="checkmark-circle-outline" size={20} color="#333" />
+                      <Text style={styles.amenityCategoryTitle}>{category.category}</Text>
                     </View>
-                    <Text style={styles.reviewComment}>{review.comment}</Text>
+                    <Text style={styles.amenityCategoryItems}>{category.items}</Text>
                   </View>
                 ))}
+
+                {property?.has_security && (
+                  <View style={styles.amenityCategoryContainer}>
+                    <View style={styles.amenityCategoryHeader}>
+                      <Ionicons name="shield-checkmark-outline" size={20} color="#333" />
+                      <Text style={styles.amenityCategoryTitle}>Security</Text>
+                    </View>
+                    <Text style={styles.amenityCategoryItems}>24/7 Security Available</Text>
+                  </View>
+                )}
               </View>
-              <TouchableOpacity style={styles.showAllReviewsButton}>
-                <Text style={styles.showAllReviewsText}>Show all reviews</Text>
-              </TouchableOpacity>
-            </View>
+            )}
+
+            {/* Reviews Section - Only show if reviews exist */}
+            {getPropertyReviews().length > 0 && (
+              <View style={styles.section}>
+                <Text style={styles.sectionTitle}>Reviews from guests</Text>
+                <View style={styles.reviewsContainer}>
+                  {getPropertyReviews().slice(0, 2).map((review, index) => (
+                    <View key={review.id || index} style={styles.reviewItem}>
+                      <View style={styles.reviewHeader}>
+                        <View style={styles.reviewerAvatar}>
+                          <Text style={styles.reviewerAvatarText}>
+                            {(review.reviewer_name || review.user_name || 'Anonymous').charAt(0).toUpperCase()}
+                          </Text>
+                        </View>
+                        <View style={styles.reviewerInfo}>
+                          <Text style={styles.reviewerName}>
+                            {review.reviewer_name || review.user_name || 'Anonymous'}
+                          </Text>
+                          <View style={styles.reviewRating}>
+                            {[...Array(5)].map((_, i) => (
+                              <Ionicons 
+                                key={i} 
+                                name="star" 
+                                size={12} 
+                                color={i < (review.rating || 5) ? "#FFD700" : "#E0E0E0"} 
+                              />
+                            ))}
+                            <Text style={styles.reviewTime}>
+                              {review.created_at 
+                                ? new Date(review.created_at).toLocaleDateString()
+                                : 'Recently'
+                              }
+                            </Text>
+                          </View>
+                        </View>
+                      </View>
+                      <Text style={styles.reviewComment}>
+                        {review.comment || review.review_text || 'Great experience!'}
+                      </Text>
+                    </View>
+                  ))}
+                </View>
+                {getPropertyReviews().length > 2 && (
+                  <TouchableOpacity style={styles.showAllReviewsButton}>
+                    <Text style={styles.showAllReviewsText}>
+                      Show all {getPropertyReviews().length} reviews
+                    </Text>
+                  </TouchableOpacity>
+                )}
+              </View>
+            )}
 
             {/* Listed By Section */}
             <View style={styles.section}>
               <Text style={styles.sectionTitle}>Listed by</Text>
               <View style={styles.agentContainer}>
                 <View style={styles.agentAvatar}>
-                  <Text style={styles.agentAvatarText}>L</Text>
+                  <Text style={styles.agentAvatarText}>
+                    {(property?.lister?.name || property?.owner_name || property?.user?.name || 'Owner').charAt(0).toUpperCase()}
+                  </Text>
                 </View>
                 <View style={styles.agentInfo}>
-                  <Text style={styles.agentRole}>Agent</Text>
-                  <Text style={styles.agentId}>Agent ID</Text>
-                  <Text style={styles.agentName}>Marta</Text>
+                  <Text style={styles.agentRole}>
+                    {property?.lister?.user_type || property?.owner_type || 'Property Owner'}
+                  </Text>
+                  {property?.lister?.id && (
+                    <Text style={styles.agentId}>ID: {property.lister.id}</Text>
+                  )}
+                  <Text style={styles.agentName}>
+                    {property?.lister?.name || property?.owner_name || property?.user?.name || 'Property Owner'}
+                  </Text>
+                  {(property?.lister?.phone || property?.owner_phone) && (
+                    <Text style={styles.agentContact}>
+                      {property.lister?.phone || property.owner_phone}
+                    </Text>
+                  )}
                 </View>
               </View>
             </View>
 
             {/* Published Date */}
-            <Text style={styles.publishedDate}>Published on: 09.01.2025</Text>
+            <Text style={styles.publishedDate}>
+              Published on: {property?.created_at 
+                ? new Date(property.created_at).toLocaleDateString('en-GB')
+                : 'Recently'
+              }
+            </Text>
 
             {/* Bottom spacing for floating buttons */}
             <View style={styles.bottomSpacing} />
@@ -720,6 +818,34 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     backgroundColor: "#f5f5f5",
   },
+  mapPlaceholder: {
+    width: "100%",
+    height: 200,
+    borderRadius: 12,
+    backgroundColor: "#f5f5f5",
+    justifyContent: "center",
+    alignItems: "center",
+    borderWidth: 1,
+    borderColor: "#e0e0e0",
+  },
+  mapPlaceholderText: {
+    fontSize: 16,
+    color: "#666",
+    fontWeight: "500",
+    marginTop: 8,
+  },
+  mapCoordinates: {
+    fontSize: 12,
+    color: "#999",
+    marginTop: 4,
+  },
+  mapAddressText: {
+    fontSize: 14,
+    color: "#666",
+    textAlign: "center",
+    marginTop: 4,
+    paddingHorizontal: 16,
+  },
   section: {
     marginBottom: 24,
   },
@@ -868,6 +994,11 @@ const styles = StyleSheet.create({
     fontSize: 18,
     fontWeight: "600",
     color: "#333",
+  },
+  agentContact: {
+    fontSize: 14,
+    color: "#666",
+    marginTop: 2,
   },
   publishedDate: {
     fontSize: 14,

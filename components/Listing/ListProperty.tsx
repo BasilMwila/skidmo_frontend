@@ -155,10 +155,6 @@ const SellListingScreen = () => {
         pet_friendly: pets === "Yes",
         allow_smoking: false,
         allow_kids: true,
-        photos: preparePhotosForAPI(photos),
-        videos: prepareVideosForAPI(video),
-        owner_proof: ownershipPhoto || null,
-        agent_certificate: certificatePhoto || null,
         is_agent: isAgent,
       }
 
@@ -182,7 +178,7 @@ const SellListingScreen = () => {
           nearby_infrastructure: prepareInfrastructureForAPI(selectedInfrastructure),
         }
         console.log("Publishing HOUSE/BOARDING property for sale:", JSON.stringify(houseData, null, 2))
-        response = await propertiesAPI.house.create(houseData)
+        response = await propertiesAPI.house.create(houseData, photos, video, ownershipPhoto, certificatePhoto)
       } else if (selectedType === "Apartment/flat") {
         const apartmentData = {
           ...baseData,
@@ -207,7 +203,7 @@ const SellListingScreen = () => {
           nearby_infrastructure: prepareInfrastructureForAPI(selectedInfrastructure),
         }
         console.log("Publishing APARTMENT property for sale:", JSON.stringify(apartmentData, null, 2))
-        response = await propertiesAPI.apartment.create(apartmentData)
+        response = await propertiesAPI.apartment.create(apartmentData, photos, video, ownershipPhoto, certificatePhoto)
       } else if (selectedType === "Lodge" || selectedType === "Hotel room") {
         const hotelData = {
           ...baseData,
@@ -282,7 +278,7 @@ const SellListingScreen = () => {
           elevators: false,
         }
         console.log("Publishing LODGE_HOTEL property for sale:", JSON.stringify(hotelData, null, 2))
-        response = await propertiesAPI.hotels.create(hotelData)
+        response = await propertiesAPI.hotels.create(hotelData, photos, video, ownershipPhoto, certificatePhoto)
       } else if (selectedType === "Commercial") {
         const commercialData = {
           ...baseData,
@@ -299,7 +295,7 @@ const SellListingScreen = () => {
           nearby_infrastructure: prepareInfrastructureForAPI(selectedInfrastructure),
         }
         console.log("Publishing COMMERCIAL property for sale:", JSON.stringify(commercialData, null, 2))
-        response = await propertiesAPI.commercial.create(commercialData)
+        response = await propertiesAPI.commercial.create(commercialData, photos, video, ownershipPhoto, certificatePhoto)
       }
 
       console.log("API response:", response)

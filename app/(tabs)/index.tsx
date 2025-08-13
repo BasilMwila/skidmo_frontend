@@ -137,25 +137,30 @@ export default function Home() {
         throw new Error(`Invalid property ID: ${item.id}`)
       }
 
-      // Navigate based on property type with correct paths
-      switch (item.property_type) {
-        case "COMMERCIAL":
-          router.push(`/properties/commercial/${propertyId}`)
-          break
-        case "APARTMENT":
-          router.push(`/properties/appartment/${propertyId}`)
-          break
-        case "HOUSE":
-        case "BOARDING":
-          router.push(`/properties/house/${propertyId}`)
-          break
-        case "LODGE_HOTEL":
-          router.push(`/properties/hotel/${propertyId}`)
-          break
-        default:
-          console.warn(`Unknown property type: ${item.property_type}`)
-          router.push(`/properties/house/${propertyId}`) // Fallback to house
-      }
+      // Use generic property page with type parameter for reliable routing
+      const typeParam = item.property_type ? `?type=${item.property_type.toLowerCase()}` : ''
+      router.push(`/properties/${propertyId}${typeParam}`)
+      
+      // Alternative: Navigate based on property type with correct paths
+      // Commenting out the type-specific routing since the generic page should handle all types
+      // switch (item.property_type) {
+      //   case "COMMERCIAL":
+      //     router.push(`/properties/commercial/${propertyId}`)
+      //     break
+      //   case "APARTMENT":
+      //     router.push(`/properties/appartment/${propertyId}`)
+      //     break
+      //   case "HOUSE":
+      //   case "BOARDING":
+      //     router.push(`/properties/house/${propertyId}`)
+      //     break
+      //   case "LODGE_HOTEL":
+      //     router.push(`/properties/hotel/${propertyId}`)
+      //     break
+      //   default:
+      //     console.warn(`Unknown property type: ${item.property_type}`)
+      //     router.push(`/properties/house/${propertyId}`) // Fallback to house
+      // }
     } catch (error) {
       console.error("Navigation error:", error)
       // Show an alert or toast to the user

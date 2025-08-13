@@ -2,9 +2,10 @@
 
 import { propertiesAPI } from "@/services/propertiesApi"
 import { wishlistService } from "@/services/wishlistAPI"
+import { API_CONFIG } from "@/config/apiConfig"
 import { FontAwesome, Ionicons } from "@expo/vector-icons"
 import { useLocalSearchParams, useRouter } from "expo-router"
-import { useEffect, useState } from "react"
+import { useEffect, useState, useRef } from "react"
 import {
   ActivityIndicator,
   Alert,
@@ -18,8 +19,21 @@ import {
   TouchableOpacity,
   View,
 } from "react-native"
+import { Video } from "expo-av"
 
 const { width } = Dimensions.get("window")
+
+// Helper function to get full image URL
+const getFullImageUrl = (imagePath: string): string => {
+  if (imagePath.startsWith('http')) {
+    return imagePath // Already a full URL
+  }
+  // Get the base server URL (without API path)
+  const baseServerUrl = API_CONFIG.BASE_URL.replace('/api/test/v1/', '/')
+  // Remove leading slash from imagePath if present, then add it back properly
+  const cleanPath = imagePath.startsWith('/') ? imagePath : `/${imagePath}`
+  return `${baseServerUrl.replace(/\/$/, '')}${cleanPath}`
+}
 
 interface PropertyDetails {
   id: string
@@ -32,6 +46,7 @@ interface PropertyDetails {
   number_of_rooms?: number
   number_of_bathrooms?: number
   photos?: string[]
+  videos?: string[]
   amenities?: Array<{ name: string }>
   nearby_infrastructure?: Array<{ name: string }>
   owner_phone_number?: string
@@ -45,10 +60,21 @@ interface PropertyDetails {
   property_type?: string
   sale_price?: string
   rental_price?: string
+  purpose?: string
+  term_category?: string
+  lister?: any
+  created_at?: string
+  has_balcony?: boolean
+  has_pool?: boolean
+  has_patio?: boolean
+  garden?: string
+  wifi?: boolean
+  parking?: boolean
+  furnished?: string
 }
 
 export default function PropertyDetailsScreen() {
-  const { id } = useLocalSearchParams()
+  const { id, type } = useLocalSearchParams()
   const router = useRouter()
   const [property, setProperty] = useState<PropertyDetails | null>(null)
   const [loading, setLoading] = useState(true)
@@ -56,13 +82,17 @@ export default function PropertyDetailsScreen() {
   const [currentImageIndex, setCurrentImageIndex] = useState(0)
   const [isInWishlist, setIsInWishlist] = useState(false)
   const [wishlistLoading, setWishlistLoading] = useState(false)
+  const [showMoreDescription, setShowMoreDescription] = useState(false)
+  const scrollViewRef = useRef<ScrollView>(null)
+  const autoSlideInterval = useRef<NodeJS.Timeout | null>(null)
 
   const propertyId = Array.isArray(id) ? id[0] : id
+  const propertyType = Array.isArray(type) ? type[0] : type
 
   // Add debugging
   useEffect(() => {
-    console.log("PropertyDetailsScreen mounted with ID:", propertyId)
-    console.log("Full params:", { id })
+    console.log("PropertyDetailsScreen mounted with ID:", propertyId, "Type:", propertyType)
+    console.log("Full params:", { id, type })
   }, [])
 
   useEffect(() => {
@@ -80,10 +110,15 @@ export default function PropertyDetailsScreen() {
   const fetchPropertyDetails = async () => {
     try {
       setLoading(true)
-      console.log("Calling propertiesAPI.getPropertyDetails with ID:", propertyId)
+      console.log("Calling propertiesAPI.getPropertyDetails with ID:", propertyId, "and Type:", propertyType)
 
-      const data = await propertiesAPI.getPropertyDetails(propertyId)
-      console.log("Received property data:", data)
+      // Pass the property type to the API if available
+      const response = await propertiesAPI.getPropertyDetails(propertyId, propertyType)
+      console.log("Received property response:", response)
+      
+      // Extract the actual data from the response
+      const data = response.data || response
+      console.log("Extracted property data:", data)
 
       // Transform the data to match our interface
       const transformedProperty: PropertyDetails = {
@@ -96,12 +131,13 @@ export default function PropertyDetailsScreen() {
         bathroom_count: data.bathroom_count || data.number_of_bathrooms,
         number_of_rooms: data.number_of_rooms || data.bedroom_count,
         number_of_bathrooms: data.number_of_bathrooms || data.bathroom_count,
-        photos: data.photos || [],
+        photos: data.photos?.map((photo: any) => getFullImageUrl(photo.image || photo)) || [],
+        videos: data.videos?.map((video: any) => getFullImageUrl(video.video || video)) || [],
         amenities: data.amenities || [],
         nearby_infrastructure: data.nearby_infrastructure || [],
         owner_phone_number: data.owner_phone_number || data.contact,
         contact: data.contact || data.owner_phone_number,
-        rating: data.rating || 0,
+        rating: data.rating || data.star_rating || 0,
         year_of_construction: data.year_of_construction,
         security: data.security,
         pet_friendly: data.pet_friendly,
@@ -110,6 +146,17 @@ export default function PropertyDetailsScreen() {
         property_type: data.property_type,
         sale_price: data.sale_price,
         rental_price: data.rental_price,
+        purpose: data.purpose,
+        term_category: data.term_category,
+        lister: data.lister,
+        created_at: data.created_at,
+        has_balcony: data.has_balcony,
+        has_pool: data.has_pool,
+        has_patio: data.has_patio,
+        garden: data.garden,
+        wifi: data.wifi || data.has_wifi,
+        parking: data.parking || data.has_parking,
+        furnished: data.furnished,
       }
 
       console.log("Transformed property:", transformedProperty)
@@ -258,7 +305,7 @@ export default function PropertyDetailsScreen() {
         <View style={styles.propertyInfo}>
           <View style={styles.priceSection}>
             <Text style={styles.priceText}>
-              K{typeof property.price === "string" ? property.price.replace("K", "") : property.price}
+              K{typeof property.price === "string" ? property.price.replace("K", "") : String(property.price || "0")}
             </Text>
             {property.rating && property.rating > 0 && (
               <View style={styles.ratingContainer}>
@@ -268,8 +315,8 @@ export default function PropertyDetailsScreen() {
             )}
           </View>
 
-          <Text style={styles.titleText}>{property.title}</Text>
-          <Text style={styles.addressText}>{property.address}</Text>
+          <Text style={styles.titleText}>{String(property.title || "")}</Text>
+          <Text style={styles.addressText}>{String(property.address || "")}</Text>
 
           {/* Property Details */}
           <View style={styles.detailsSection}>
@@ -279,7 +326,7 @@ export default function PropertyDetailsScreen() {
                 <View style={styles.detailItem}>
                   <Ionicons name="bed-outline" size={20} color="#666" />
                   <Text style={styles.detailText}>
-                    {property.bedroom_count || property.number_of_rooms} Bedroom
+                    {String(property.bedroom_count || property.number_of_rooms || 0)} Bedroom
                     {(property.bedroom_count || property.number_of_rooms || 0) > 1 ? "s" : ""}
                   </Text>
                 </View>
@@ -288,7 +335,7 @@ export default function PropertyDetailsScreen() {
                 <View style={styles.detailItem}>
                   <Ionicons name="water-outline" size={20} color="#666" />
                   <Text style={styles.detailText}>
-                    {property.bathroom_count || property.number_of_bathrooms} Bathroom
+                    {String(property.bathroom_count || property.number_of_bathrooms || 0)} Bathroom
                     {(property.bathroom_count || property.number_of_bathrooms || 0) > 1 ? "s" : ""}
                   </Text>
                 </View>
@@ -296,13 +343,13 @@ export default function PropertyDetailsScreen() {
               {property.year_of_construction && (
                 <View style={styles.detailItem}>
                   <Ionicons name="calendar-outline" size={20} color="#666" />
-                  <Text style={styles.detailText}>Built {property.year_of_construction}</Text>
+                  <Text style={styles.detailText}>Built {String(property.year_of_construction)}</Text>
                 </View>
               )}
               {property.property_type && (
                 <View style={styles.detailItem}>
                   <Ionicons name="home-outline" size={20} color="#666" />
-                  <Text style={styles.detailText}>{property.property_type}</Text>
+                  <Text style={styles.detailText}>{String(property.property_type || "")}</Text>
                 </View>
               )}
             </View>
@@ -311,7 +358,7 @@ export default function PropertyDetailsScreen() {
           {/* Description */}
           <View style={styles.descriptionSection}>
             <Text style={styles.sectionTitle}>Description</Text>
-            <Text style={styles.descriptionText}>{property.description}</Text>
+            <Text style={styles.descriptionText}>{String(property.description || "")}</Text>
           </View>
 
           {/* Features */}
@@ -452,6 +499,198 @@ const styles = StyleSheet.create({
   },
   propertyInfo: {
     padding: 16,
+    paddingBottom: 120, // Extra space for floating buttons
+  },
+  mediaItem: {
+    width: width,
+    height: 300,
+  },
+  videoOverlay: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  onlineTourButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    alignSelf: 'flex-start',
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderWidth: 1,
+    borderColor: '#E0E0E0',
+    borderRadius: 6,
+    marginBottom: 16,
+  },
+  onlineTourText: {
+    fontSize: 14,
+    color: '#666',
+    marginLeft: 6,
+  },
+  headerSection: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 8,
+  },
+  priceAndUnitContainer: {
+    flexDirection: 'row',
+    alignItems: 'baseline',
+  },
+  propertyPrice: {
+    fontSize: 24,
+    fontWeight: 'bold',
+    color: '#333',
+  },
+  priceUnit: {
+    fontSize: 16,
+    color: '#666',
+    marginLeft: 4,
+  },
+  propertyDetails: {
+    fontSize: 16,
+    color: '#666',
+    marginBottom: 4,
+  },
+  locationText: {
+    fontSize: 16,
+    color: '#666',
+    marginBottom: 20,
+  },
+  section: {
+    marginBottom: 24,
+  },
+  amenitiesGrid: {
+    gap: 12,
+  },
+  amenityRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 8,
+  },
+  amenityText: {
+    fontSize: 16,
+    color: '#333',
+    marginLeft: 12,
+  },
+  showMoreText: {
+    fontSize: 16,
+    color: '#333',
+    textDecorationLine: 'underline',
+  },
+  agentContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  agentAvatar: {
+    width: 50,
+    height: 50,
+    borderRadius: 25,
+    backgroundColor: '#4CAF50',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: 12,
+  },
+  agentAvatarText: {
+    color: '#fff',
+    fontSize: 18,
+    fontWeight: 'bold',
+  },
+  agentInfo: {
+    flex: 1,
+  },
+  agentRole: {
+    fontSize: 14,
+    color: '#666',
+  },
+  agentName: {
+    fontSize: 18,
+    fontWeight: '600',
+    color: '#333',
+  },
+  agentContact: {
+    fontSize: 14,
+    color: '#666',
+    marginTop: 2,
+  },
+  publishedDate: {
+    fontSize: 14,
+    color: '#666',
+    marginBottom: 20,
+  },
+  leftArrow: {
+    position: 'absolute',
+    left: 16,
+    top: '50%',
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  rightArrow: {
+    position: 'absolute',
+    right: 16,
+    top: '50%',
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  imageCounter: {
+    position: 'absolute',
+    bottom: 16,
+    right: 16,
+    backgroundColor: 'rgba(0, 0, 0, 0.7)',
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 16,
+  },
+  imageCounterText: {
+    color: '#fff',
+    fontSize: 12,
+    fontWeight: '500',
+  },
+  topRightButtons: {
+    position: 'absolute',
+    top: 16,
+    right: 16,
+    flexDirection: 'row',
+    gap: 8,
+  },
+  topButton: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  floatingButtons: {
+    position: 'absolute',
+    bottom: 16,
+    left: 16,
+    right: 16,
+    flexDirection: 'row',
+    gap: 12,
+  },
+  reserveButton: {
+    flex: 1,
+    backgroundColor: '#4CAF50',
+    paddingVertical: 16,
+    borderRadius: 8,
+    alignItems: 'center',
+  },
+  buttonText: {
+    color: '#fff',
+    fontSize: 16,
+    fontWeight: '600',
   },
   priceSection: {
     flexDirection: "row",
@@ -491,116 +730,17 @@ const styles = StyleSheet.create({
     fontWeight: "600",
     marginBottom: 12,
   },
-  detailsSection: {
-    marginBottom: 20,
-  },
-  detailsGrid: {
-    flexDirection: "row",
-    flexWrap: "wrap",
-  },
-  detailItem: {
-    flexDirection: "row",
-    alignItems: "center",
-    width: "50%",
-    marginBottom: 8,
-  },
-  detailText: {
-    marginLeft: 8,
-    fontSize: 14,
-    color: "#333",
-  },
-  descriptionSection: {
-    marginBottom: 20,
-  },
   descriptionText: {
     fontSize: 14,
     lineHeight: 20,
     color: "#666",
   },
-  featuresSection: {
-    marginBottom: 20,
-  },
-  featuresGrid: {
-    flexDirection: "row",
-    flexWrap: "wrap",
-  },
-  featureItem: {
-    flexDirection: "row",
-    alignItems: "center",
-    width: "50%",
-    marginBottom: 8,
-  },
-  featureText: {
-    marginLeft: 8,
-    fontSize: 14,
-    color: "#333",
-  },
-  amenitiesSection: {
-    marginBottom: 20,
-  },
-  amenitiesGrid: {
-    flexDirection: "row",
-    flexWrap: "wrap",
-  },
-  amenityItem: {
-    flexDirection: "row",
-    alignItems: "center",
-    width: "50%",
-    marginBottom: 8,
-  },
-  amenityText: {
-    marginLeft: 8,
-    fontSize: 14,
-    color: "#333",
-  },
-  infrastructureSection: {
-    marginBottom: 20,
-  },
-  infrastructureGrid: {
-    flexDirection: "row",
-    flexWrap: "wrap",
-  },
-  infrastructureItem: {
-    flexDirection: "row",
-    alignItems: "center",
-    width: "50%",
-    marginBottom: 8,
-  },
-  infrastructureText: {
-    marginLeft: 8,
-    fontSize: 14,
-    color: "#333",
-  },
-  bottomActions: {
-    flexDirection: "row",
-    padding: 16,
-    borderTopWidth: 1,
-    borderTopColor: "#f0f0f0",
-  },
-  callButton: {
-    flex: 1,
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "center",
-    backgroundColor: "#00a651",
-    paddingVertical: 12,
-    borderRadius: 8,
-    marginRight: 8,
-  },
   messageButton: {
     flex: 1,
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "center",
-    backgroundColor: "#007AFF",
-    paddingVertical: 12,
+    backgroundColor: '#4CAF50',
+    paddingVertical: 16,
     borderRadius: 8,
-    marginLeft: 8,
-  },
-  actionButtonText: {
-    color: "white",
-    fontWeight: "600",
-    marginLeft: 8,
+    alignItems: 'center',
   },
   loadingContainer: {
     flex: 1,

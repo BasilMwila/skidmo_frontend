@@ -35,6 +35,10 @@ export const usePropertyFilters = (listingType: 'short-term' | 'long-term' | 'ho
     accessibility: [],
     security: [],
   });
+  
+  // Photos and video state
+  const [photos, setPhotos] = useState<string[]>([]);
+  const [video, setVideo] = useState<string>('');
 
   // Fetch initial data
   useEffect(() => {
@@ -47,93 +51,14 @@ export const usePropertyFilters = (listingType: 'short-term' | 'long-term' | 'ho
         if (!userId) throw new Error('User not authenticated');
         
         // Fetch all necessary data in parallel
-        const [types, amenitiesData] = await Promise.all([
-          propertiesAPI.hotels.create({
-              // Provide the required fields for LodgeHotelProperty except 'id'
-              // name: 'Default Hotel Name', // Removed as it is not part of the expected type
-              address: 'Default Address',
-              property_type: 'LODGE_HOTEL',
-              purpose: 'RENT',
-              heating: false,
-              security: false,
-              has_balcony: false,
-              has_patio: false,
-              term_category: 'LONG',
-              price_negotiable: false,
-              title: '',
-              description: '',
-              pet_friendly: false,
-              allow_smoking: false,
-              allow_kids: false,
-              is_agent: false,
-              room_count: 0,
-              has_pool: false,
-              room_type: 'SINGLE',
-              bed_type: 'SINGLE',
-              view_type: 'SEA',
-              owner: 0,
-              bidet: false,
-              bath: false,
-              outdoor_shower: false,
-              hot_water: false,
-              hair_dryer: false,
-              shower_gel: false,
-              shampoo: false,
-              conditioner: false,
-              essentials: false,
-              washing_machine: false,
-              drying_rack: false,
-              clothes_storage: false,
-              free_dryer: false,
-              iron: false,
-              hangers: false,
-              bed_linen: false,
-              cot: false,
-              room_darkening_blinds: false,
-              travel_cot: false,
-              extra_pillows: false,
-              mosquito_net: false,
-              microwave: false,
-              fridge: false,
-              cooking_basics: false,
-              dishes: false,
-              dishwasher: false,
-              oven: false,
-              kettle: false,
-              coffee_maker: false,
-              toaster: false,
-              blender: false,
-              dining_table: false,
-              electric_cooker: false,
-              tv: false,
-              wifi: false,
-              air_conditioner: false,
-              ceiling_fan: false,
-              portable_fans: false,
-              smoke_alarm: false,
-              carbon_monoxide_alarm: false,
-              first_aid_kit: false,
-              luggage_dropoff: false,
-              lockbox: false,
-              beach_essentials: false,
-              self_checkin: false,
-              spa: false,
-              parking: false,
-              fitness_center: false,
-              bar: false,
-              restaurant: false,
-              kids_play_area: false,
-              wheelchair_access: false,
-              meeting_rooms: false,
-              business_center: false,
-              coworking_space: false,
-              wheelchair: false,
-              elevators: false
-          }),
-          propertiesAPI.hotels.list() // Adjust based on your actual amenities endpoint
+        const [amenitiesData] = await Promise.all([
+          propertiesAPI.hotels.list() // Get amenities and property types
         ]);
         
-        setPropertyTypes(types?.data || types);
+        // Set property types based on listing type
+        if (listingType === 'hotel') {
+          setPropertyTypes({ 'LODGE_HOTEL': 'Hotel/Lodge' });
+        }
         setAmenities(amenitiesData?.data || amenitiesData);
         
         // Set other options based on your backend structure
@@ -181,8 +106,33 @@ export const usePropertyFilters = (listingType: 'short-term' | 'long-term' | 'ho
     return {
       ...filters,
       amenities: Object.values(selectedAmenities).flat(),
+      photos,
+      video,
       // Add other combined data as needed
     };
+  };
+  
+  // Submit property data
+  const submitProperty = async () => {
+    try {
+      const data = prepareListingData();
+      
+      // Extract photo URIs from photo objects
+      const photoUris = photos.map(photo => 
+        typeof photo === 'string' ? photo : photo.image || photo
+      );
+      
+      console.log('Photos being sent to API:', photoUris);
+      
+      if (listingType === 'hotel') {
+        return await propertiesAPI.hotels.create(data, photoUris, video);
+      }
+      // Add other property types as needed
+      throw new Error('Property type not supported');
+    } catch (error) {
+      console.error('Error submitting property:', error);
+      throw error;
+    }
   };
 
   return {
@@ -196,8 +146,13 @@ export const usePropertyFilters = (listingType: 'short-term' | 'long-term' | 'ho
     viewTypes,
     mealOptions,
     selectedAmenities,
+    photos,
+    video,
     handleFilterChange,
     toggleAmenity,
+    setPhotos,
+    setVideo,
     prepareListingData,
+    submitProperty,
   };
 };
